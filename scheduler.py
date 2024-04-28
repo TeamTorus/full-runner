@@ -4,6 +4,11 @@ import numpy as np
 import psycopg2
 import os
 from dotenv import load_dotenv
+import json
+from psycopg2.extras import Json
+from psycopg2.extensions import register_adapter
+
+register_adapter(dict, Json)
 
 load_dotenv()
 host = os.getenv("RDS_HOST")
@@ -15,6 +20,10 @@ print(host, port, database, username, password)
 
 attempts = 0
 
+# configs
+shape = 'airfoil'
+solver = 'simpleFoam'
+optimizer = 'GA'
 
 # converts control point formats from 3 coordinate lists to nested spline arrays
 def coords_to_splines(xC, yC, zC, degree = 5):
@@ -45,8 +54,28 @@ def splines_to_coords(splines, degree = 5):
 
     return xC, yC, zC
 
-def multiprocessor():
-    pass
+def multiprocessor(parallel_eval, inputs, table_name, conn, cursor, gen_num):
+    
+    def to_execute(input):
+        # add row to table
+        cursor.execute('''INSERT INTO {} (time_started, in_progress, completed, generation_number, ctrl_pts)
+                    VALUES (NOW(), TRUE, FALSE, {}, {});
+                    '''.format(table_name, gen_num, input))
+        conn.commit()
+        
+
+        cost,_ = parallel_eval(input)
+
+        # update row in table that's not yet completed
+        cursor.execute('''UPDATE {} SET time_completed = NOW(), in_progress = FALSE, completed = TRUE, cl_cd = {}
+                    WHERE in_progress = TRUE AND generation_number = {} AND ctrl_pts = {};
+                    '''.format(table_name, cost, gen_num, input))
+        conn.commit()
+
+        return cost
+    
+    pool = multiprocessing.Pool()
+    outputs = pool.map(to_execute, inputs)
 
 def initiate():
 
@@ -57,8 +86,57 @@ def initiate():
         print("Database opened successfully")
 
         cur = conn.cursor()
+
+        # Table - runs (if not exists)
+        # run_id, time_started, time_completed, in-progress, table_name, shape, solver, optimizer
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS runs (
+                run_id SERIAL PRIMARY KEY,
+                time_started TIMESTAMP,
+                time_completed TIMESTAMP,
+                in_progress BOOLEAN,
+                completed BOOLEAN,
+                table_name TEXT,
+                shape TEXT,
+                solver TEXT,
+                optimizer TEXT
+            );
+        ''')
+        conn.commit()
+
+        # get the latest run_id, and increment it by 1
+        cur.execute("SELECT MAX(run_id) FROM runs")
+        run_id = cur.fetchone()[0] + 1
+
+        # add entry to runs table
+        table_name = shape + optimizer + str(run_id)
+        cur.execute('''
+                    INSERT INTO runs (run_id, time_started, in_progress, completed, table_name, shape, solver, optimizer)
+                    VALUES ({}, NOW(), TRUE, FALSE, {}, {}, {}, {});
+                    '''.format(run_id, table_name, shape, solver, optimizer))
+        conn.commit()
+
+        # Table - airfoil (if not exists)
+        # individual_id, time_started, time_completed, in-progress, completed, generation_number, cl-cd, ctrl_pts
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS {} (
+                individual_id SERIAL PRIMARY KEY,
+                time_started TIMESTAMP,
+                time_completed TIMESTAMP,
+                in_progress BOOLEAN,
+                completed BOOLEAN,
+                generation_number INTEGER,
+                cl_cd FLOAT,
+                ctrl_pts JSON
+            );
+        '''.format(table_name))
+        conn.commit()
+
+        conn.close()
+
         
     except:
+        # give it 3 chances to connect to the database
         attempts += 1
         if attempts < 3:
             print("I am unable to connect to the database. Trying again...")

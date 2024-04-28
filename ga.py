@@ -60,7 +60,7 @@ def plot_fitpoints(splines, show_points=True):
         
         
 #--------------GA ALG--------------------
-def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size = 100, alpha = 0.00875, init_pop_splines = []):
+def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size = 100, alpha = 0.00875, init_pop_splines = [], table_name = None, conn = None, cursor = None):
     """
     Executes the genetic algorithm. Pass in a function that takes in an evaluation func and inputs list into `multiprocessor`
     for parallel compute, which should not be async. If this is done, it should return the ranks list. 
@@ -158,7 +158,7 @@ def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size
         return type(make_valid(p)) == type(p)
 
     # Creates a list containing the members of the population in order from most to least fit
-    def rank(splines):
+    def rank(splines, generation_number):
         ranks = []
 
         # define potential parallel computation
@@ -175,7 +175,7 @@ def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size
                 if val is not None:
                     ranks.append(val)
         else:
-            ranks = multiprocessor(parallel_eval, splines)
+            ranks = multiprocessor(parallel_eval=parallel_eval, inputs=splines, table_name=table_name, conn=conn, cursor=cursor, gen_num=generation_number)
 
         # Rank solutions in reverse sorted order
         ranks.sort()
@@ -200,7 +200,7 @@ def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size
 
     # Initial population
     cur_pop = init_pop(init_pop_splines)
-    ranking = rank(cur_pop)
+    ranking = rank(cur_pop, 0)
 
     # Print the control points of the best solution in the initial population
     print(f"Generation 0 best solution is:")
@@ -244,7 +244,7 @@ def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size
 
         # Update population and ranking
         cur_pop = next_gen
-        ranking = rank(cur_pop)
+        ranking = rank(cur_pop, i+1)
 
         # Print the control points of the best solution in each generation
         print(f"Generation {i+1} best solution is:")
