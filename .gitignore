@@ -159,5 +159,9 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-
+# too big for git
 structure/airfoilOptTest1Clean/constant/polyMesh/faces
+
+# runtime generated files
+runtime/[0-9]*
+

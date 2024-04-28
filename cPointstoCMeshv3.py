@@ -248,6 +248,10 @@ def salome_stuff(xC, yC, zC, outdir):
     print("finished exporting\n",1)
 
 def fix_boundary(outdir):
+    '''
+    Fixes boundary types to empty from patch where `outdir` is the path to the polyMesh directory
+    '''
+
     line_nums = []
     to_change = ['TopLeft', 'BottomLeft', 'TopRight', 'BottomRight', 'TopLeft_top', 'BottomLeft_top', 'TopRight_top', 'BottomRight_top']
     new_file = []

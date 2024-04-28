@@ -3,6 +3,7 @@ import scipy.interpolate as si
 import matplotlib.pyplot as plt
 import sys
 from shapely.validation import make_valid
+from shapely.geometry import Polygon
 
 def scipy_bspline(cv, n=100, degree=5, periodic=False):
     """ Calculate n samples on a bspline
@@ -59,7 +60,7 @@ def plot_fitpoints(splines, show_points=True):
         
         
 #--------------GA ALG--------------------
-def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size = 100, alpha = 0.00875):
+def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size = 100, alpha = 0.00875, init_pop_splines = []):
     """
     Executes the genetic algorithm. Pass in a function that takes in an evaluation func and inputs list into `multiprocessor`
     for parallel compute, which should not be async. If this is done, it should return the ranks list. 
@@ -198,7 +199,7 @@ def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size
 
 
     # Initial population
-    cur_pop = init_pop(splines_list2)
+    cur_pop = init_pop(init_pop_splines)
     ranking = rank(cur_pop)
 
     # Print the control points of the best solution in the initial population
