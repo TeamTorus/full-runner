@@ -3,12 +3,14 @@ import time
 import numpy as np
 import psycopg2
 import os
+import csv
+import sys
 from dotenv import load_dotenv
 import json
 from psycopg2.extras import Json
 from psycopg2.extensions import register_adapter
 from ga import genetic_alg
-# from cPointstoCMeshv3 import fix_boundary, salome_stuff
+from cPointstoCMeshv3 import fix_boundary, salome_stuff
 
 # configs
 shape = 'airfoil'
@@ -107,8 +109,32 @@ def multiprocessor(parallel_eval, inputs, table_name, conn, cursor, gen_num):
     print("Output: {}".format(outputs))
     return outputs
 
-def airfoil_eval(input):
-    pass
+def airfoil_cost(input):
+    '''
+    Where input is control points in the splines format used by `ga.py`
+    '''
+    # convert splines to control points
+    xC, yC, zC = splines_to_coords(input)
+
+    # make sure we're in a core folder
+    if 'core' not in os.getcwd() and 'runtime' not in os.getcwd():
+        # assume we in root and default to core 0
+        os.chdir('./runtime/core0')
+
+    salome_stuff(xC, yC, zC, './constant/polyMesh')
+    fix_boundary('./constant/polyMesh')
+
+    # run the solver
+    try:
+        os.system('simpleFoam')
+    except:
+        print("Error running solver")
+        # return a high cost
+        return float('inf')
+    
+    # get the cl/cd
+
+
 
 
 def initiate():
@@ -206,9 +232,28 @@ def continue_execution(conn = []):
         print("Assumed runtime directories are already created")
 
     # get init population
+    xC = []
+    yC = []
+    zC = []
+    with open('./ControlPoints.txt') as f:
+        reader = csv.reader(f, delimiter = "\t")
+        for n in reader:
+            if (n[0] == "START"): #ignore start lines
+                pass
+            elif (n[0] == "END"): #ignore end lines
+                pass
+            else:
+                xC.append(n[0]) #add first number in each row to x coordinate list
+                yC.append(n[1]) #add second number to y list
+                zC.append(n[2]) #third to z list
+        f.close()
+
+    initial_splines = coords_to_splines(xC, yC, zC)
 
     # start GA
-    genetic_alg(multiprocessor=multiprocessor, conn=conn, cursor=cur, table_name=table_name, total_generations=total_generations, population_size=population_size, alpha=alpha)
+    genetic_alg(cost_fcn=airfoil_cost, multiprocessor=multiprocessor, conn=conn, cursor=cur, table_name=table_name, num_generations=total_generations, pop_size=population_size, alpha=alpha, init_pop_splines=initial_splines)
+
+
 
     conn.close()
 

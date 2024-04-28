@@ -9,3 +9,4 @@ input = 'core0'
 #         os.system('rm -r ./{}'.format(file))
 
 print(len(os.listdir('./runtime')))
+print(os.getcwd())
