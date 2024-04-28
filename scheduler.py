@@ -71,6 +71,12 @@ def multiprocessor(parallel_eval, inputs, table_name, conn, cursor, gen_num):
                     VALUES (NOW(), TRUE, FALSE, {}, {});
                     '''.format(table_name, gen_num, input))
         conn.commit()
+
+        # clean up this core's runtime folder (assumes that salome can overwrite files fine)
+        # delete all folders except for base ones
+        for file in os.listdir('./'):
+            if file != '0' and file != 'constant' and file != 'system' and file != 'Allclean' and file != 'Allrun':
+                os.system('rm -r ./{}'.format(file))
         
 
         fitness, _ = parallel_eval(input)
@@ -83,9 +89,20 @@ def multiprocessor(parallel_eval, inputs, table_name, conn, cursor, gen_num):
 
         return fitness, input
     
+    # create process pool (manages allocation of processes to cores)
     pool = multiprocessing.Pool()
+
+    # reroute to the correct runtime folder for each core
+    template_folders = ['core{}'.format(i) for i in range(cores)]
+
+    def reroute(input):
+        os.chdir('./runtime/{}'.format(input))
+    pool.map(reroute, template_folders)
+
+    # execute the function in parallel
     outputs = pool.map(to_execute, inputs)
     pool.close()
+    pool.join()
 
     print("Output: {}".format(outputs))
     return outputs
