@@ -1,5 +1,14 @@
 import psycopg2
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
+host = os.getenv("RDS_HOST")
+port = os.getenv("RDS_PORT")
+database = os.getenv("RDS_DATABASE")
+username = os.getenv("RDS_USERNAME")
+password = os.getenv("RDS_PASSWORD")
+print(host, port, database, username, password)
 
 try:
     conn = psycopg2.connect( host=host, user=username, password=password, port=port, database=database )
@@ -25,7 +34,7 @@ try:
 
     cur.execute('''
                 INSERT INTO runs (run_id, time_started, in_progress, completed, table_name, shape, solver, optimizer)
-                VALUES (7, NOW(), TRUE, FALSE, 'torus1', 'torus', 'simpleFoam', 'nlopt');
+                VALUES (9, NOW(), TRUE, FALSE, 'torus1', 'torus', 'simpleFoam', 'nlopt');
                 ''')
     conn.commit()
 
