@@ -1,0 +1,5 @@
+numpy
+psycopg2-binary
+scipy
+matplotlib
+shapely

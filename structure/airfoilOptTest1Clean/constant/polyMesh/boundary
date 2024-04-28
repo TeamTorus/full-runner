@@ -1,0 +1,78 @@
+/*--------------------------------------------------------------------*\
+|                                                                      |
+|    File exported from Salome Platform using SalomeToFoamExporter     |
+|                                                                      |
+\*--------------------------------------------------------------------*/
+FoamFile
+{
+	version		2.0;
+	format		ascii;
+	class		polyBoundaryMesh;
+	location	"constant/polyMesh";
+	object		boundary;
+}
+
+10
+(
+	FarField_extruded
+	{
+		type		patch;
+		nFaces		3600;
+		startFace	4320898;
+	}
+	Airfoil_extruded
+	{
+		type		wall;
+		nFaces		2400;
+		startFace	4324498;
+	}
+
+	TopLeft
+	{
+		type		patch;
+		nFaces		360807;
+		startFace	2879249;
+	}
+	BottomLeft
+	{
+		type		patch;
+		nFaces		360842;
+		startFace	3240056;
+	}
+	TopRight
+	{
+		type		patch;
+		nFaces		360000;
+		startFace	3600898;
+	}
+	BottomRight
+	{
+		type		patch;
+		nFaces		360000;
+		startFace	3960898;
+	}
+	TopLeft_top
+	{
+		type		patch;
+		nFaces		360807;
+		startFace	4326898;
+	}
+	BottomLeft_top
+	{
+		type		patch;
+		nFaces		360842;
+		startFace	4687705;
+	}
+	TopRight_top
+	{
+		type		patch;
+		nFaces		360000;
+		startFace	5048547;
+	}
+	BottomRight_top
+	{
+		type		patch;
+		nFaces		360000;
+		startFace	5408547;
+	}
+)
