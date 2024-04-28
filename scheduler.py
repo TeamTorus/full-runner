@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 import json
 from psycopg2.extras import Json
 from psycopg2.extensions import register_adapter
+from ga import genetic_alg
+# from cPointstoCMeshv3 import fix_boundary, salome_stuff
 
 register_adapter(dict, Json)
 
@@ -64,75 +66,35 @@ def multiprocessor(parallel_eval, inputs, table_name, conn, cursor, gen_num):
         conn.commit()
         
 
-        cost,_ = parallel_eval(input)
+        fitness, _ = parallel_eval(input)
 
         # update row in table that's not yet completed
         cursor.execute('''UPDATE {} SET time_completed = NOW(), in_progress = FALSE, completed = TRUE, cl_cd = {}
                     WHERE in_progress = TRUE AND generation_number = {} AND ctrl_pts = {};
-                    '''.format(table_name, cost, gen_num, input))
+                    '''.format(table_name, fitness, gen_num, input))
         conn.commit()
 
-        return cost
+        return fitness, input
     
     pool = multiprocessing.Pool()
     outputs = pool.map(to_execute, inputs)
+    pool.close()
+
+    print("Output: {}".format(outputs))
+    return outputs
+
+def airfoil_eval(input):
+    pass
+
 
 def initiate():
 
-    global attempts
+    global attempts     # attempts at db connection
 
     try: 
         conn = psycopg2.connect( host=host, user=username, password=password, port=port, database=database )
         print("Database opened successfully")
 
-        cur = conn.cursor()
-
-        # Table - runs (if not exists)
-        # run_id, time_started, time_completed, in-progress, table_name, shape, solver, optimizer
-        cur.execute('''
-            CREATE TABLE IF NOT EXISTS runs (
-                run_id SERIAL PRIMARY KEY,
-                time_started TIMESTAMP,
-                time_completed TIMESTAMP,
-                in_progress BOOLEAN,
-                completed BOOLEAN,
-                table_name TEXT,
-                shape TEXT,
-                solver TEXT,
-                optimizer TEXT
-            );
-        ''')
-        conn.commit()
-
-        # get the latest run_id, and increment it by 1
-        cur.execute("SELECT MAX(run_id) FROM runs")
-        run_id = cur.fetchone()[0] + 1
-
-        # add entry to runs table
-        table_name = shape + optimizer + str(run_id)
-        cur.execute('''
-                    INSERT INTO runs (run_id, time_started, in_progress, completed, table_name, shape, solver, optimizer)
-                    VALUES ({}, NOW(), TRUE, FALSE, {}, {}, {}, {});
-                    '''.format(run_id, table_name, shape, solver, optimizer))
-        conn.commit()
-
-        # Table - airfoil (if not exists)
-        # individual_id, time_started, time_completed, in-progress, completed, generation_number, cl-cd, ctrl_pts
-        cur.execute('''
-            CREATE TABLE IF NOT EXISTS {} (
-                individual_id SERIAL PRIMARY KEY,
-                time_started TIMESTAMP,
-                time_completed TIMESTAMP,
-                in_progress BOOLEAN,
-                completed BOOLEAN,
-                generation_number INTEGER,
-                cl_cd FLOAT,
-                ctrl_pts JSON
-            );
-        '''.format(table_name))
-        conn.commit()
-
-        conn.close()
 
         
     except:
@@ -145,6 +107,71 @@ def initiate():
         else:
             print("I am unable to connect to the database. Exiting...")
             exit()
+
+    continue_execution(conn)
+
+def continue_execution(conn):
+
+    cur = conn.cursor()
+
+    # Table - runs (if not exists)
+    # run_id, time_started, time_completed, in-progress, table_name, shape, solver, optimizer
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS runs (
+            run_id SERIAL PRIMARY KEY,
+            time_started TIMESTAMP,
+            time_completed TIMESTAMP,
+            in_progress BOOLEAN,
+            completed BOOLEAN,
+            table_name TEXT,
+            shape TEXT,
+            solver TEXT,
+            optimizer TEXT
+        );
+    ''')
+    conn.commit()
+
+    # get the latest run_id, and increment it by 1
+    cur.execute("SELECT MAX(run_id) FROM runs")
+    run_id = cur.fetchone()[0] + 1
+
+    # add entry to runs table
+    table_name = shape + optimizer + str(run_id) + ''
+    print(table_name)
+    cur.execute('''
+                INSERT INTO runs (run_id, time_started, in_progress, completed, table_name, shape, solver, optimizer)
+                VALUES ({}, NOW(), TRUE, FALSE, '{}', '{}', '{}', '{}');
+                '''.format(run_id, table_name, shape, solver, optimizer))
+    conn.commit()
+
+    # Table - airfoil (if not exists)
+    # individual_id, time_started, time_completed, in-progress, completed, generation_number, cl-cd, ctrl_pts
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS {} (
+            individual_id SERIAL PRIMARY KEY,
+            time_started TIMESTAMP,
+            time_completed TIMESTAMP,
+            in_progress BOOLEAN,
+            completed BOOLEAN,
+            generation_number INTEGER,
+            cl_cd FLOAT,
+            ctrl_pts JSON
+        );
+    '''.format(table_name))
+    conn.commit()
+
+    conn.close()
+
+    # check that the only file in the runtime folder is not "base"
+    if len(os.listdir('./runtime')) != 1:
+        
+        # delete all files in runtime folder except "base"
+        for file in os.listdir('./runtime'):
+            if file != 'base':
+                os.remove('./runtime/' + file)
+
+    # create the necessary directories by copying the structure directory and all its contents to the runtime folder
+    os.system('cp -r ./structure ./runtime')
 
 initiate()
 
