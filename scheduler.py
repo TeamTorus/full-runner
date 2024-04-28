@@ -10,6 +10,14 @@ from psycopg2.extensions import register_adapter
 from ga import genetic_alg
 # from cPointstoCMeshv3 import fix_boundary, salome_stuff
 
+# configs
+shape = 'airfoil'
+solver = 'simpleFoam'
+optimizer = 'GA'
+total_generations = 100
+population_size = 100
+alpha = .00875
+
 register_adapter(dict, Json)
 
 load_dotenv()
@@ -22,10 +30,9 @@ print(host, port, database, username, password)
 
 attempts = 0
 
-# configs
-shape = 'airfoil'
-solver = 'simpleFoam'
-optimizer = 'GA'
+# get number of cores
+cores = multiprocessing.cpu_count()
+print("Number of detected cores: {}".format(cores))
 
 # converts control point formats from 3 coordinate lists to nested spline arrays
 def coords_to_splines(xC, yC, zC, degree = 5):
@@ -126,7 +133,9 @@ def continue_execution(conn):
             table_name TEXT,
             shape TEXT,
             solver TEXT,
-            optimizer TEXT
+            optimizer TEXT,
+            num_generations INTEGER,
+            population_size INTEGER
         );
     ''')
     conn.commit()
@@ -139,9 +148,9 @@ def continue_execution(conn):
     table_name = shape + optimizer + str(run_id) + ''
     print(table_name)
     cur.execute('''
-                INSERT INTO runs (run_id, time_started, in_progress, completed, table_name, shape, solver, optimizer)
-                VALUES ({}, NOW(), TRUE, FALSE, '{}', '{}', '{}', '{}');
-                '''.format(run_id, table_name, shape, solver, optimizer))
+                INSERT INTO runs (run_id, time_started, in_progress, completed, table_name, shape, solver, optimizer, num_generations, population_size)
+                VALUES ({}, NOW(), TRUE, FALSE, '{}', '{}', '{}', '{}', {}, {});
+                '''.format(run_id, table_name, shape, solver, optimizer, total_generations, population_size))
     conn.commit()
 
     # Table - airfoil (if not exists)
@@ -165,13 +174,17 @@ def continue_execution(conn):
     # check that the only file in the runtime folder is not "base"
     if len(os.listdir('./runtime')) != 1:
         
-        # delete all files in runtime folder except "base"
+        # delete all files in runtime folder
         for file in os.listdir('./runtime'):
-            if file != 'base':
-                os.remove('./runtime/' + file)
+            os.system('rm -r ./runtime/{}'.format(file))
+
+        os.system('touch ./runtime/base')
+
+        print("cleaned working directories")
 
     # create the necessary directories by copying the structure directory and all its contents to the runtime folder
-    os.system('cp -r ./structure ./runtime')
+    for i in range(cores):
+        os.system('cp -r ./structure/airfoilOptTest1Clean ./runtime/core{}'.format(i))
 
 initiate()
 

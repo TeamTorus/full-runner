@@ -163,5 +163,5 @@ cython_debug/
 structure/airfoilOptTest1Clean/constant/polyMesh/faces
 
 # runtime generated files
-runtime/[0-9]*
+runtime/core[0-9]*
 
