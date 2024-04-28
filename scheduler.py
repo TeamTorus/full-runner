@@ -78,7 +78,7 @@ def multiprocessor(parallel_eval, inputs, table_name, conn, cursor, gen_num):
             if file != '0' and file != 'constant' and file != 'system' and file != 'Allclean' and file != 'Allrun':
                 os.system('rm -r ./{}'.format(file))
         
-
+        # trigger core execute
         fitness, _ = parallel_eval(input)
 
         # update row in table that's not yet completed
@@ -134,7 +134,7 @@ def initiate():
 
     continue_execution(conn)
 
-def continue_execution(conn):
+def continue_execution(conn = []):
 
     cur = conn.cursor()
 
@@ -186,10 +186,8 @@ def continue_execution(conn):
     '''.format(table_name))
     conn.commit()
 
-    conn.close()
-
-    # check that the only file in the runtime folder is not "base"
-    if len(os.listdir('./runtime')) != 1:
+    # assuming that if you have cores # of folders, it's setup right, otherwise, delete and recreate
+    if len(os.listdir('./runtime')) != cores + 1:   # cores + base file
         
         # delete all files in runtime folder
         for file in os.listdir('./runtime'):
@@ -199,9 +197,20 @@ def continue_execution(conn):
 
         print("cleaned working directories")
 
-    # create the necessary directories by copying the structure directory and all its contents to the runtime folder
-    for i in range(cores):
-        os.system('cp -r ./structure/airfoilOptTest1Clean ./runtime/core{}'.format(i))
+        # create the necessary directories by copying the structure directory and all its contents to the runtime folder
+        for i in range(cores):
+            os.system('cp -r ./structure/airfoilOptTest1Clean ./runtime/core{}'.format(i))
+
+        print("created working directories")
+    else:
+        print("Assumed runtime directories are already created")
+
+    # get init population
+
+    # start GA
+    genetic_alg(multiprocessor=multiprocessor, conn=conn, cursor=cur, table_name=table_name, total_generations=total_generations, population_size=population_size, alpha=alpha)
+
+    conn.close()
 
 initiate()
 
