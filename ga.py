@@ -261,6 +261,6 @@ def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size
         #         for s in range(len(splines_list1)): 
         #             plt.plot(splines_list1[s][:,0], splines_list1[s][:,1], 'o--')
 
-        if i == num_generations-1:
-            # Create a formatted file containing the optimized control points in the current directory
-            save_ctrlpts(ranking[0][1], i)
+        # if i == num_generations-1:
+        #     # Create a formatted file containing the optimized control points in the current directory
+        #     save_ctrlpts(ranking[0][1], i)

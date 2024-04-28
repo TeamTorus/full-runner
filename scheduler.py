@@ -65,50 +65,6 @@ def splines_to_coords(splines, degree = 5):
 
     return xC, yC, zC
 
-def multiprocessor(parallel_eval, inputs, table_name, conn, cursor, gen_num):
-    
-    def to_execute(input):
-        # add row to table
-        cursor.execute('''INSERT INTO {} (time_started, in_progress, completed, generation_number, ctrl_pts)
-                    VALUES (NOW(), TRUE, FALSE, {}, {});
-                    '''.format(table_name, gen_num, input))
-        conn.commit()
-
-        # clean up this core's runtime folder (assumes that salome can overwrite files fine)
-        # delete all folders except for base ones
-        for file in os.listdir('./'):
-            if file != '0' and file != 'constant' and file != 'system' and file != 'Allclean' and file != 'Allrun':
-                os.system('rm -r ./{}'.format(file))
-        
-        # trigger core execute
-        fitness, _ = parallel_eval(input)
-
-        # update row in table that's not yet completed
-        cursor.execute('''UPDATE {} SET time_completed = NOW(), in_progress = FALSE, completed = TRUE, cl_cd = {}
-                    WHERE in_progress = TRUE AND generation_number = {} AND ctrl_pts = {};
-                    '''.format(table_name, fitness, gen_num, input))
-        conn.commit()
-
-        return fitness, input
-    
-    # create process pool (manages allocation of processes to cores)
-    pool = multiprocessing.Pool()
-
-    # reroute to the correct runtime folder for each core
-    template_folders = ['core{}'.format(i) for i in range(cores)]
-
-    def reroute(input):
-        os.chdir('./runtime/{}'.format(input))
-    pool.map(reroute, template_folders)
-
-    # execute the function in parallel
-    outputs = pool.map(to_execute, inputs)
-    pool.close()
-    pool.join()
-
-    print("Output: {}".format(outputs))
-    return outputs
-
 def airfoil_cost(input):
     '''
     Where input is control points in the splines format used by `ga.py`
@@ -176,7 +132,51 @@ def airfoil_cost(input):
     return float(cl_val) / float(cd_val)
 
 
+def multiprocessor(parallel_eval, inputs, table_name, conn, cursor, gen_num):
+    
+    def to_execute(input):
+        # add row to table
+        cursor.execute('''INSERT INTO {} (time_started, in_progress, completed, generation_number, ctrl_pts)
+                    VALUES (NOW(), TRUE, FALSE, {}, {});
+                    '''.format(table_name, gen_num, input))
+        conn.commit()
 
+        # clean up this core's runtime folder (assumes that salome can overwrite files fine)
+        # delete all folders except for base ones
+        for file in os.listdir('./'):
+            if file != '0' and file != 'constant' and file != 'system' and file != 'Allclean' and file != 'Allrun':
+                os.system('rm -r ./{}'.format(file))
+        
+        # trigger core execute
+        fitness, _ = parallel_eval(input)
+
+        # update row in table that's not yet completed
+        cursor.execute('''UPDATE {} SET time_completed = NOW(), in_progress = FALSE, completed = TRUE, cl_cd = {}
+                    WHERE in_progress = TRUE AND generation_number = {} AND ctrl_pts = {};
+                    '''.format(table_name, fitness, gen_num, input))
+        conn.commit()
+
+        return fitness, input
+    
+    # create process pool (manages allocation of processes to cores)
+    pool = multiprocessing.Pool()
+
+    # reroute to the correct runtime folder for each core
+    template_folders = ['core{}'.format(i) for i in range(cores)]
+
+    def reroute(input):
+        os.chdir('./runtime/{}'.format(input))
+    pool.map(reroute, template_folders)
+
+    # execute the function in parallel
+    outputs = pool.map(to_execute, inputs)
+    pool.close()
+    pool.join()
+
+    print("Output: {}".format(outputs))
+    return outputs
+
+#-------------------------------------------------------------------
 
 def initiate():
 
@@ -294,7 +294,9 @@ def continue_execution(conn = []):
     # start GA
     genetic_alg(cost_fcn=airfoil_cost, multiprocessor=multiprocessor, conn=conn, cursor=cur, table_name=table_name, num_generations=total_generations, pop_size=population_size, alpha=alpha, init_pop_splines=initial_splines)
 
-
+    # update the entry as completed
+    cur.execute("UPDATE runs SET time_completed = NOW(), in_progress = FALSE, completed = TRUE WHERE table_name = '{}';".format(table_name))
+    conn.commit()
 
     conn.close()
 
