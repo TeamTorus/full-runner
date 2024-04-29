@@ -63,7 +63,7 @@ def plot_fitpoints(splines, show_points=True):
 def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size = 100, alpha = 0.00875, init_pop_splines = [], table_name = None, conn = None, cursor = None):
     """
     Executes the genetic algorithm. Pass in a function that takes in an evaluation func and inputs list into `multiprocessor`
-    for parallel compute, which should not be async. If this is done, it should return the ranks list. 
+    for parallel compute, which should not be async and be blocking. If this is done, it should return the ranks list. 
     """
 
     # Gets difference in slopes between control points

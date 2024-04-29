@@ -28,6 +28,7 @@ port = os.getenv("RDS_PORT")
 database = os.getenv("RDS_DATABASE")
 username = os.getenv("RDS_USERNAME")
 password = os.getenv("RDS_PASSWORD")
+salome_route = os.getenv("SALOME_LAUNCHER")
 print(host, port, database, username, password)
 
 attempts = 0
@@ -134,15 +135,18 @@ def airfoil_cost(input):
 
 def multiprocessor(parallel_eval, inputs, table_name, conn, cursor, gen_num):
     
+    # locked closure under all other params but input shape
     def to_execute(input):
         # add row to table
+        # could add all of a generation's rows at once to minimize I/O, but would have to update each row anyways
+        # with time_started, so it doesn't reduce runtime network cost
         cursor.execute('''INSERT INTO {} (time_started, in_progress, completed, generation_number, ctrl_pts)
                     VALUES (NOW(), TRUE, FALSE, {}, {});
                     '''.format(table_name, gen_num, input))
         conn.commit()
 
         # clean up this core's runtime folder (assumes that salome can overwrite files fine)
-        # delete all folders except for base ones
+        # delete all folders except for core ones
         for file in os.listdir('./'):
             if file != '0' and file != 'constant' and file != 'system' and file != 'Allclean' and file != 'Allrun':
                 os.system('rm -r ./{}'.format(file))
@@ -152,14 +156,14 @@ def multiprocessor(parallel_eval, inputs, table_name, conn, cursor, gen_num):
 
         # update row in table that's not yet completed
         cursor.execute('''UPDATE {} SET time_completed = NOW(), in_progress = FALSE, completed = TRUE, cl_cd = {}
-                    WHERE in_progress = TRUE AND generation_number = {} AND ctrl_pts = {};
+                    WHERE in_progress = TRUE AND completed = FALSE AND generation_number = {} AND ctrl_pts = {};
                     '''.format(table_name, fitness, gen_num, input))
         conn.commit()
 
         return fitness, input
     
     # create process pool (manages allocation of processes to cores)
-    pool = multiprocessing.Pool()
+    pool = multiprocessing.Pool(processes=cores)
 
     # reroute to the correct runtime folder for each core
     template_folders = ['core{}'.format(i) for i in range(cores)]
@@ -201,7 +205,7 @@ def initiate():
 
     continue_execution(conn)
 
-def continue_execution(conn = []):
+def continue_execution(conn):
 
     cur = conn.cursor()
 
@@ -289,8 +293,15 @@ def continue_execution(conn = []):
                 zC.append(n[2]) #third to z list
         f.close()
 
-    initial_splines = coords_to_splines(xC, yC, zC)
 
+    # start the salome environment
+    if salome_route is not None:
+        os.system("source {}".format(salome_route))
+        print("Salome environment deployed")
+
+    initial_splines = coords_to_splines(xC, yC, zC)
+    print("Found initial splines: ", initial_splines)
+    
     # start GA
     genetic_alg(cost_fcn=airfoil_cost, multiprocessor=multiprocessor, conn=conn, cursor=cur, table_name=table_name, num_generations=total_generations, pop_size=population_size, alpha=alpha, init_pop_splines=initial_splines)
 

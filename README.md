@@ -4,6 +4,6 @@
 
 manually add in ./structure/airfoilOptTest1Clean/constant/polyMesh/faces
 
-manually add in .env file
+manually add in .env file & route to source salome if applicable
 
 if error, try clearing the `runtime/` folder for all files but `base`
