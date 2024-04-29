@@ -10,7 +10,6 @@ import json
 from psycopg2.extras import Json
 from psycopg2.extensions import register_adapter
 from ga import genetic_alg
-from cPointstoCMeshv3 import fix_boundary, salome_stuff
 
 # configs
 shape = 'airfoil'
@@ -30,6 +29,13 @@ username = os.getenv("RDS_USERNAME")
 password = os.getenv("RDS_PASSWORD")
 salome_route = os.getenv("SALOME_LAUNCHER")
 print(host, port, database, username, password)
+
+# start the salome environment
+if salome_route is not None:
+    os.system("source {}".format(salome_route))
+    print("Salome environment deployed")
+
+from cPointstoCMeshv3 import fix_boundary, salome_stuff
 
 attempts = 0
 
@@ -154,7 +160,7 @@ def multiprocessor(parallel_eval, inputs, table_name, conn, cursor, gen_num):
         # trigger core execute
         fitness, _ = parallel_eval(input)
 
-        # update row in table that's not yet completed
+        # update row in table that's not yet completed using row-level locking
         cursor.execute('''UPDATE {} SET time_completed = NOW(), in_progress = FALSE, completed = TRUE, cl_cd = {}
                     WHERE in_progress = TRUE AND completed = FALSE AND generation_number = {} AND ctrl_pts = {};
                     '''.format(table_name, fitness, gen_num, input))
@@ -292,12 +298,6 @@ def continue_execution(conn):
                 yC.append(n[1]) #add second number to y list
                 zC.append(n[2]) #third to z list
         f.close()
-
-
-    # start the salome environment
-    if salome_route is not None:
-        os.system("source {}".format(salome_route))
-        print("Salome environment deployed")
 
     initial_splines = coords_to_splines(xC, yC, zC)
     print("Found initial splines: ", initial_splines)
