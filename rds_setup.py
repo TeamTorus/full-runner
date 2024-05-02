@@ -1,4 +1,5 @@
-import psycopg2
+import pg8000
+from pg8000 import JSON
 import os
 from dotenv import load_dotenv
 
@@ -11,7 +12,7 @@ password = os.getenv("RDS_PASSWORD")
 print(host, port, database, username, password)
 
 try:
-    conn = psycopg2.connect( host=host, user=username, password=password, port=port, database=database )
+    conn = pg8000.connect( host=host, user=username, password=password, port=port, database=database )
     print("Database opened successfully")
 
     cur = conn.cursor()

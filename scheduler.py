@@ -1,25 +1,24 @@
 import multiprocessing 
 import time 
 import numpy as np
-import psycopg2
+import pg8000
 import os
 import csv
 import sys
 from dotenv import load_dotenv
 import json
-from psycopg2.extras import Json
-from psycopg2.extensions import register_adapter
+from pg8000 import JSON
 from ga import genetic_alg
 
 # configs
 shape = 'airfoil'
 solver = 'simpleFoam'
 optimizer = 'GA'
-total_generations = 100
-population_size = 100
+total_generations = 2
+population_size = 8
 alpha = .00875
 
-register_adapter(dict, Json)
+# register_adapter(dict, Json)
 
 load_dotenv()
 host = os.getenv("RDS_HOST")
@@ -148,7 +147,7 @@ def multiprocessor(parallel_eval, inputs, table_name, conn, cursor, gen_num):
         # with time_started, so it doesn't reduce runtime network cost
         cursor.execute('''INSERT INTO {} (time_started, in_progress, completed, generation_number, ctrl_pts)
                     VALUES (NOW(), TRUE, FALSE, {}, {});
-                    '''.format(table_name, gen_num, input))
+                    '''.format(table_name, gen_num, json.dumps(input)))
         conn.commit()
 
         # clean up this core's runtime folder (assumes that salome can overwrite files fine)
@@ -163,7 +162,7 @@ def multiprocessor(parallel_eval, inputs, table_name, conn, cursor, gen_num):
         # update row in table that's not yet completed using row-level locking
         cursor.execute('''UPDATE {} SET time_completed = NOW(), in_progress = FALSE, completed = TRUE, cl_cd = {}
                     WHERE in_progress = TRUE AND completed = FALSE AND generation_number = {} AND ctrl_pts = {};
-                    '''.format(table_name, fitness, gen_num, input))
+                    '''.format(table_name, fitness, gen_num, json.dumps(input)))
         conn.commit()
 
         return fitness, input
@@ -193,7 +192,7 @@ def initiate():
     global attempts     # attempts at db connection
 
     try: 
-        conn = psycopg2.connect( host=host, user=username, password=password, port=port, database=database )
+        conn = pg8000.connect( host=host, user=username, password=password, port=port, database=database )
         print("Database opened successfully")
 
 
