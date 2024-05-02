@@ -79,9 +79,10 @@ def salome_stuff(xC, yC, zC, outdir):
     #geomObj_23 = geompy.MakeTranslation(airfoil, 0, 0, -0.5)
 
     #Make boundary region
-    Disk_1 = geompy.MakeDiskR(10, 1)
-    Face_1 = geompy.MakeFaceHW(10, 20, 1)
-    Translation_1 = geompy.MakeTranslation(Face_1, 5, 0, 0)
+    radius = 5
+    Disk_1 = geompy.MakeDiskR(radius, 1)
+    Face_1 = geompy.MakeFaceHW(radius, 2*radius, 1)
+    Translation_1 = geompy.MakeTranslation(Face_1, radius/2, 0, 0)
     Fuse_1 = geompy.MakeFuseList([Disk_1, Translation_1], True, True)
     Translation_2 = geompy.MakeTranslation(Fuse_1, 1, 0, 0)
     Disk_2 = geompy.MakeDiskR(20, 3)
@@ -172,32 +173,34 @@ def salome_stuff(xC, yC, zC, outdir):
     TopRight_1 = Mesh_1.GroupOnGeom(TopRight,'TopRight',SMESH.FACE)
     BottomRight_1 = Mesh_1.GroupOnGeom(BottomRight,'BottomRight',SMESH.FACE)
 
+    cellNum = 100
+    scaleNum = 1.5
     Regular_1D_1 = Mesh_1.Segment(geom=TopLeft)
     TopLeft_2 = Regular_1D_1.GetSubMesh()
-    TopLeft_3 = Regular_1D_1.NumberOfSegments(600,200,[])
+    TopLeft_3 = Regular_1D_1.NumberOfSegments(cellNum, scaleNum,[])
     Quadrangle_2D_1 = Mesh_1.Quadrangle(algo=smeshBuilder.QUADRANGLE,geom=TopLeft)
 
     Regular_1D_2 = Mesh_1.Segment(geom=BottomLeft)
     BottomLeft_2 = Regular_1D_2.GetSubMesh()
-    BottomLeft_3 = Regular_1D_2.NumberOfSegments(600,200,[ 26, 33, 31, 18, 16, 28, 13, 7, 9, 25, 23 ])
+    BottomLeft_3 = Regular_1D_2.NumberOfSegments(cellNum, scaleNum,[ 26, 33, 31, 18, 16, 28, 13, 7, 9, 25, 23 ])
     Quadrangle_2D_2 = Mesh_1.Quadrangle(algo=smeshBuilder.QUADRANGLE,geom=BottomLeft)
     isDone = Mesh_1.SetMeshOrder( [ [ TopLeft_2, BottomLeft_2 ] ])
 
     Regular_1D_3 = Mesh_1.Segment(geom=TopRight)
     TopRight_2 = Regular_1D_3.GetSubMesh()
-    TopRight_3 = Regular_1D_3.NumberOfSegments(600,200,[ 20 ])
+    TopRight_3 = Regular_1D_3.NumberOfSegments(cellNum, scaleNum,[ 20 ])
     Quadrangle_2D_3 = Mesh_1.Quadrangle(algo=smeshBuilder.QUADRANGLE,geom=TopRight)
     isDone = Mesh_1.SetMeshOrder( [ [ TopLeft_2, BottomLeft_2, TopRight_2 ] ])
 
     Regular_1D_4 = Mesh_1.Segment(geom=BottomRight)
     BottomRight_2 = Regular_1D_4.GetSubMesh()
-    BottomRight_3 = Regular_1D_4.NumberOfSegments(600,200,[ 20, 26, 31 ])
+    BottomRight_3 = Regular_1D_4.NumberOfSegments(cellNum, scaleNum,[ 20, 26, 31 ])
     Quadrangle_2D_4 = Mesh_1.Quadrangle(algo=smeshBuilder.QUADRANGLE,geom=BottomRight)
     isDone = Mesh_1.SetMeshOrder( [ [ TopLeft_2, BottomLeft_2, TopRight_2, BottomRight_2 ] ])
 
 
     isDone = Mesh_1.Compute()
-    [ FarField_extruded, Airfoil_extruded, TopLeft_extruded, BottomLeft_extruded, TopRight_extruded, BottomRight_extruded, FarField_top, Airfoil_top, TopLeft_top, BottomLeft_top, TopRight_top, BottomRight_top ] = Mesh_1.ExtrusionSweepObjects( [], [], [ Mesh_1 ], [ 0, 0, 1 ], 1, 1, [  ], 0, [  ], [  ], 0 )
+    [ FarField_extruded, Airfoil_extruded, TopLeft_extruded, BottomLeft_extruded, TopRight_extruded, BottomRight_extruded, FarField_top, Airfoil_top, TopLeft_top, BottomLeft_top, TopRight_top, BottomRight_top ] = Mesh_1.ExtrusionSweepObjects( [], [], [ Mesh_1 ], [ 0, 0, 0.1 ], 1, 1, [  ], 0, [  ], [  ], 0 )
 
 
     ## Set names of Mesh objects
