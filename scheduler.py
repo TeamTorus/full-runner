@@ -18,6 +18,7 @@ optimizer = 'GA'
 total_generations = 2
 population_size = 8
 alpha = .00875
+input_file = 'ControlPoints0012.txt'
 
 # temp globals
 conn = None
@@ -94,6 +95,9 @@ def airfoil_cost(input):
 
     try:
         print("Running salome...")
+        print(xC)
+        print(yC)
+        print(zC)
         salome_stuff(xC, yC, zC, './constant/polyMesh')
         fix_boundary('./constant/polyMesh')
 
@@ -106,6 +110,7 @@ def airfoil_cost(input):
             return float('inf')
     except:
         print("Error running salome")
+        sleep(5)
         # return a high cost
         return float('inf')
     
@@ -162,7 +167,8 @@ def airfoil_cost(input):
 def to_execute(input):
 
     # print("Executing process {}...".format(os.getpid()))
-    os.chdir('./runtime/core0')
+    if 'core' not in os.getcwd() and 'runtime' not in os.getcwd():
+        os.chdir('./runtime/core0')
 
     # make a version of the input that can be stored in the db (numpy arrays can't be stored)
     if isinstance(input, np.ndarray):
@@ -193,6 +199,7 @@ def to_execute(input):
     conn.run('''INSERT INTO {} (individual_id, time_started, in_progress, completed, generation_number, ctrl_pts)
                 VALUES ({}, NOW(), TRUE, FALSE, {}, CAST(:ct as jsonb));
                 '''.format(table_name, individual_id, gen_num), ct=json.dumps(input2))
+    conn.commit()
 
     print("{} wrote to table {}".format(os.getpid(), table_name))
 
@@ -217,6 +224,7 @@ def to_execute(input):
     # update row in table that's not yet completed using row-level locking
     conn.run("UPDATE {} SET time_completed = NOW(), in_progress = FALSE, completed = TRUE, cl_cd = {} WHERE individual_id = {} AND in_progress = TRUE AND completed = FALSE AND generation_number = {};"\
             .format(table_name, fitness, individual_id, gen_num))
+    conn.commit()
 
 
     return fitness, input
@@ -279,10 +287,11 @@ def initiate():
 def continue_execution(conn):
 
     global table_name
+    cur = conn.cursor()
 
     # Table - runs (if not exists)
     # run_id, time_started, time_completed, in-progress, table_name, shape, solver, optimizer
-    conn.run('''
+    cur.execute('''
         CREATE TABLE IF NOT EXISTS runs (
             run_id SERIAL PRIMARY KEY,
             time_started TIMESTAMP,
@@ -297,6 +306,7 @@ def continue_execution(conn):
             population_size INTEGER
         );
     ''')
+    conn.commit()
 
     # get the latest run_id, and increment it by 1
     x = conn.run("SELECT MAX(run_id) FROM runs")
@@ -309,14 +319,15 @@ def continue_execution(conn):
     # add entry to runs table
     table_name = shape + optimizer + str(run_id) + ''
     print(table_name)
-    conn.run('''
+    cur.execute('''
                 INSERT INTO runs (run_id, time_started, in_progress, completed, table_name, shape, solver, optimizer, num_generations, population_size)
                 VALUES ({}, NOW(), TRUE, FALSE, '{}', '{}', '{}', '{}', {}, {});
                 '''.format(run_id, table_name, shape, solver, optimizer, total_generations, population_size))
+    conn.commit()
 
     # Table - airfoil (if not exists)
     # individual_id, time_started, time_completed, in-progress, completed, generation_number, cl-cd, ctrl_pts
-    conn.run('''
+    cur.execute('''
         CREATE TABLE IF NOT EXISTS {} (
             individual_id SERIAL PRIMARY KEY,
             time_started TIMESTAMP,
@@ -328,6 +339,8 @@ def continue_execution(conn):
             ctrl_pts JSON
         );
     '''.format(table_name))
+    conn.commit()
+    print("Table {} created".format(table_name))
 
     # assuming that if you have cores # of folders, it's setup right, otherwise, delete and recreate
     if len(os.listdir('./runtime')) != cores + 1:   # cores + base file
@@ -352,7 +365,7 @@ def continue_execution(conn):
     xC = []
     yC = []
     zC = []
-    with open('./ControlPoints0012.txt') as f:
+    with open(input_file) as f:
         reader = csv.reader(f, delimiter = "\t")
         for n in reader:
             if (n[0] == "START"): #ignore start lines
@@ -375,6 +388,7 @@ def continue_execution(conn):
 
     # update the entry as completed
     conn.run("UPDATE runs SET time_completed = NOW(), in_progress = FALSE, completed = TRUE WHERE table_name = '{}';".format(table_name))
+    conn.commit()
 
     conn.close()
 

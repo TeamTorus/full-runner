@@ -68,7 +68,6 @@ def salome_stuff(xC, yC, zC, outdir):
     ### SALOME GEOM - CREATE GROUPS FOR MESH
     ###
     geompy = geomBuilder.New()
-
     O = geompy.MakeVertex(0, 0, 0)
     OX = geompy.MakeVectorDXDYDZ(1, 0, 0)
     OY = geompy.MakeVectorDXDYDZ(0, 1, 0)
@@ -123,6 +122,7 @@ def salome_stuff(xC, yC, zC, outdir):
     BottomRight = geompy.CreateGroup(SuppressFaces_1, geompy.ShapeType["FACE"])
     geompy.UnionIDs(BottomRight, [29])
     [FarField, Airfoil, Left, Right, Top, Bottom, geomObj_24, TopLeft, BottomLeft, geomObj_25, geomObj_26, geomObj_27, geomObj_28, geomObj_29, geomObj_30, geomObj_31, TopRight, BottomRight] = geompy.GetExistingSubObjects(SuppressFaces_1, False)
+    print("Creating geometry")
 
     geompy.addToStudy( O, 'O' )
     geompy.addToStudy( OX, 'OX' )
@@ -256,7 +256,9 @@ def fix_boundary(outdir):
     '''
 
     line_nums = []
-    to_change = ['TopLeft', 'BottomLeft', 'TopRight', 'BottomRight', 'TopLeft_top', 'BottomLeft_top', 'TopRight_top', 'BottomRight_top']
+    line_nums2 = []
+    to_change_empty = ['TopLeft', 'BottomLeft', 'TopRight', 'BottomRight', 'TopLeft_top', 'BottomLeft_top', 'TopRight_top', 'BottomRight_top']
+    to_change_wall = ['Airfoil_extruded']
     new_file = []
 
     with open(outdir + '/boundary', 'r') as f:
@@ -264,14 +266,18 @@ def fix_boundary(outdir):
         for idx, line in enumerate(f.readlines()):
 
             # if we gonna need to change it
-            if line.strip() in to_change:
+            if line.strip() in to_change_empty:
                 line_nums.append(idx+2)
+            elif line.strip() in to_change_wall:
+                line_nums2.append(idx+2)
 
             # save the contents somewhere
             new_file.append(line)
 
     for idx in line_nums:
         new_file[idx] = '		type		empty;\n'
+    for idx in line_nums2:
+        new_file[idx] = '		type		wall;\n'
 
     # rewrite file
     with open(outdir + '/boundary', 'w') as f:
@@ -283,8 +289,8 @@ if __name__ == '__main__':
     ### CONTROL POINT EXTRACTION
     ###
 
-    indir = r"C:\Users\Ben Greenberg\Documents\gems\airfoilProject\controlPoints\ControlPoints4415.txt"
-    outdir = './base/airfoilOptTest1Clean/constant/polyMesh'
+    indir = "./ControlPoints0012.txt"
+    outdir = './runtime/core0/constant/polyMesh'
     xC = []
     yC = []
     zC = []
