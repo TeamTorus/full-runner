@@ -91,6 +91,7 @@ def airfoil_cost(input):
         # assume we in root and default to core 0
         os.chdir('./runtime/core0')
 
+    print("Running salome...")
     salome_stuff(xC, yC, zC, './constant/polyMesh')
     fix_boundary('./constant/polyMesh')
 
@@ -145,14 +146,17 @@ def airfoil_cost(input):
 
     return float(cl_val) / float(cd_val)
 
-# obtain the process id of the current process
-def get_pid(input):
-    print("PID: {}".format(os.getpid()))
-    return os.getpid()
+# # obtain the process id of the current process
+# def get_pid(input):
+#     print("PID: {}".format(os.getpid()))
+#     return os.getpid()
 
 
 # make multiprocessor function to run the solver in parallel (also has to be global for multiprocessing to work)
 def to_execute(input):
+
+    # print("Executing process {}...".format(os.getpid()))
+    os.chdir('./runtime/core0')
 
     # make a version of the input that can be stored in the db (numpy arrays can't be stored)
     if isinstance(input, np.ndarray):
@@ -175,17 +179,20 @@ def to_execute(input):
                 '''.format(table_name, gen_num, json.dumps(input2)))
     conn.commit()
 
-    # make sure we're in a core folder
+    # # make sure we're in a core folder
     if 'core' not in os.getcwd() and 'runtime' not in os.getcwd():
         # assume we in root and default to core 0
         print("In wrong folder - " + os.getcwd() + "; Redirecting to core0...")
         os.chdir('./runtime/core0')
+
     # clean up this core's runtime folder (assumes that salome can overwrite files fine)
     # delete all folders except for core ones
-    sleep(10)
+    print("Cleaning PID {}'s folders...".format(os.getpid()), end='')
     for file in os.listdir('./'):
         if file != '0' and file != 'constant' and file != 'system' and file != 'Allclean' and file != 'Allrun' and file != '.git':
+            print(file, end=' ')
             os.system('rm -r ./{}'.format(file))
+    print()
     
     # trigger core execute
     fitness, _ = parallel_eval(input)
@@ -216,12 +223,12 @@ def multiprocessor(parallel_eval_fcn, inputs, cur_table, conns, cursor, generati
     pool = multiprocessing.Pool(processes=cores)
 
     # reroute to the correct runtime folder for each core
-    template_folders = ['core{}'.format(i) for i in range(cores)]
-    pids = pool.map(get_pid, template_folders)
+    # template_folders = ['core{}'.format(i) for i in range(cores)]
+    # pids = pool.map(get_pid, template_folders)
 
     # execute the function in parallel
     # print(inputs)
-    print("Starting parallel execution...")
+    print("Starting parallel execution on {} cores...".format(len(inputs)))
     outputs = pool.map(to_execute, inputs)
     pool.close()
     pool.join()
@@ -337,7 +344,7 @@ def continue_execution(conn):
     xC = []
     yC = []
     zC = []
-    with open('./ControlPoints.txt') as f:
+    with open('./ControlPoints0012.txt') as f:
         reader = csv.reader(f, delimiter = "\t")
         for n in reader:
             if (n[0] == "START"): #ignore start lines
@@ -345,11 +352,13 @@ def continue_execution(conn):
             elif (n[0] == "END"): #ignore end lines
                 pass
             else:
-                xC.append(n[0]) #add first number in each row to x coordinate list
-                yC.append(n[1]) #add second number to y list
-                zC.append(n[2]) #third to z list
+                xC.append(float(n[0])) #add first number in each row to x coordinate list
+                yC.append(float(n[1])) #add second number to y list
+                zC.append(float(n[2])) #third to z list
         f.close()
-
+    print(xC)
+    print(yC)
+    print(zC)
     initial_splines = coords_to_splines(xC, yC, zC)
     print("Found initial splines: ", initial_splines)
     
