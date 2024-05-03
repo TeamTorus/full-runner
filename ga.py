@@ -175,7 +175,7 @@ def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size
                 if val is not None:
                     ranks.append(val)
         else:
-            ranks = multiprocessor(parallel_eval=parallel_eval, inputs=splines, table_name=table_name, conn=conn, cursor=cursor, gen_num=generation_number)
+            ranks = multiprocessor(parallel_eval_fcn=parallel_eval, inputs=splines, cur_table=table_name, conns=conn, cursor=cursor, generation_number=generation_number)
 
         # Rank solutions in reverse sorted order
         ranks.sort()

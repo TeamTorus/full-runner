@@ -18,6 +18,13 @@ total_generations = 2
 population_size = 8
 alpha = .00875
 
+# temp globals
+conn = None
+cur = None
+parallel_eval = lambda x: (airfoil_cost(x), x)
+table_name = shape + optimizer
+gen_num = 0
+
 # register_adapter(dict, Json)
 
 load_dotenv()
@@ -137,44 +144,57 @@ def airfoil_cost(input):
 
     return float(cl_val) / float(cd_val)
 
+# reroute to the correct runtime folder for each core (also has to be global for multiprocessing to work)
+def reroute(input):
+    os.chdir('./runtime/{}'.format(input))
 
-def multiprocessor(parallel_eval, inputs, table_name, conn, cursor, gen_num):
+# make multiprocessor function to run the solver in parallel (also has to be global for multiprocessing to work)
+def to_execute(input):
+
+    # add row to table
+    # could add all of a generation's rows at once to minimize I/O, but would have to update each row anyways
+    # with time_started, so it doesn't reduce runtime network cost
+    cur.execute('''INSERT INTO {} (time_started, in_progress, completed, generation_number, ctrl_pts)
+                VALUES (NOW(), TRUE, FALSE, {}, {});
+                '''.format(table_name, gen_num, json.dumps(input)))
+    conn.commit()
+
+    # clean up this core's runtime folder (assumes that salome can overwrite files fine)
+    # delete all folders except for core ones
+    for file in os.listdir('./'):
+        if file != '0' and file != 'constant' and file != 'system' and file != 'Allclean' and file != 'Allrun':
+            os.system('rm -r ./{}'.format(file))
     
-    # locked closure under all other params but input shape
-    def to_execute(input):
-        # add row to table
-        # could add all of a generation's rows at once to minimize I/O, but would have to update each row anyways
-        # with time_started, so it doesn't reduce runtime network cost
-        cursor.execute('''INSERT INTO {} (time_started, in_progress, completed, generation_number, ctrl_pts)
-                    VALUES (NOW(), TRUE, FALSE, {}, {});
-                    '''.format(table_name, gen_num, json.dumps(input)))
-        conn.commit()
+    # trigger core execute
+    fitness, _ = parallel_eval(input)
 
-        # clean up this core's runtime folder (assumes that salome can overwrite files fine)
-        # delete all folders except for core ones
-        for file in os.listdir('./'):
-            if file != '0' and file != 'constant' and file != 'system' and file != 'Allclean' and file != 'Allrun':
-                os.system('rm -r ./{}'.format(file))
-        
-        # trigger core execute
-        fitness, _ = parallel_eval(input)
+    # update row in table that's not yet completed using row-level locking
+    cur.execute('''UPDATE {} SET time_completed = NOW(), in_progress = FALSE, completed = TRUE, cl_cd = {}
+                WHERE in_progress = TRUE AND completed = FALSE AND generation_number = {} AND ctrl_pts = {};
+                '''.format(table_name, fitness, gen_num, json.dumps(input)))
+    conn.commit()
 
-        # update row in table that's not yet completed using row-level locking
-        cursor.execute('''UPDATE {} SET time_completed = NOW(), in_progress = FALSE, completed = TRUE, cl_cd = {}
-                    WHERE in_progress = TRUE AND completed = FALSE AND generation_number = {} AND ctrl_pts = {};
-                    '''.format(table_name, fitness, gen_num, json.dumps(input)))
-        conn.commit()
+    return fitness, input
 
-        return fitness, input
+def multiprocessor(parallel_eval_fcn, inputs, cur_table, conns, cursor, generation_number):
+
+    # set globals
+    global cur
+    cur = cursor
+    global conn
+    conn = conns
+    global parallel_eval
+    parallel_eval = parallel_eval_fcn
+    global table_name
+    table_name = cur_table
+    global gen_num
+    gen_num = generation_number
     
     # create process pool (manages allocation of processes to cores)
     pool = multiprocessing.Pool(processes=cores)
 
     # reroute to the correct runtime folder for each core
     template_folders = ['core{}'.format(i) for i in range(cores)]
-
-    def reroute(input):
-        os.chdir('./runtime/{}'.format(input))
     pool.map(reroute, template_folders)
 
     # execute the function in parallel
@@ -190,6 +210,7 @@ def multiprocessor(parallel_eval, inputs, table_name, conn, cursor, gen_num):
 def initiate():
 
     global attempts     # attempts at db connection
+    global conn         # db connection
 
     try: 
         conn = pg8000.connect( host=host, user=username, password=password, port=port, database=database )
@@ -211,6 +232,9 @@ def initiate():
     continue_execution(conn)
 
 def continue_execution(conn):
+
+    global cur
+    global table_name
 
     cur = conn.cursor()
 

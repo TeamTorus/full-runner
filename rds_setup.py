@@ -29,7 +29,9 @@ try:
             table_name TEXT,
             shape TEXT,
             solver TEXT,
-            optimizer TEXT
+            optimizer TEXT,
+            num_generations INTEGER,
+            population_size INTEGER
         );
     ''')
     conn.commit()
@@ -45,17 +47,20 @@ try:
 
     # print(rows)
 
-    cur.execute("SELECT * FROM runs")
-    rows = cur.fetchall()
+    # cur.execute("SELECT * FROM runs")
+    # rows = cur.fetchall()
 
-    for row in rows:
-        print(row)
+    # for row in rows:
+    #     print(row)
 
     # cur.execute("SELECT * FROM airfoilGA11")
     # rows = cur.fetchall()
     # for row in rows:
     #     print(row)
 
+    # delete table
+    cur.execute("DROP TABLE IF EXISTS runs")
+    conn.commit()
 
     conn.close()
 except:
