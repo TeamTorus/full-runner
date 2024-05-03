@@ -21,7 +21,7 @@ alpha = .00875
 
 # temp globals
 conn = None
-cur = None
+# cur = None
 parallel_eval = lambda x: (airfoil_cost(x), x)
 table_name = shape + optimizer
 gen_num = 0
@@ -47,7 +47,8 @@ from cPointstoCMeshv3 import fix_boundary, salome_stuff
 attempts = 0
 
 # get number of cores
-cores = multiprocessing.cpu_count()
+# cores = multiprocessing.cpu_count()
+cores = 1
 print("Number of detected cores: {}".format(cores))
 
 # converts control point formats from 3 coordinate lists to nested spline arrays
@@ -91,15 +92,20 @@ def airfoil_cost(input):
         # assume we in root and default to core 0
         os.chdir('./runtime/core0')
 
-    print("Running salome...")
-    salome_stuff(xC, yC, zC, './constant/polyMesh')
-    fix_boundary('./constant/polyMesh')
-
-    # run the solver
     try:
-        os.system('simpleFoam')
+        print("Running salome...")
+        salome_stuff(xC, yC, zC, './constant/polyMesh')
+        fix_boundary('./constant/polyMesh')
+
+        # run the solver
+        try:
+            os.system('simpleFoam')
+        except:
+            print("Error running solver")
+            # return a high cost
+            return float('inf')
     except:
-        print("Error running solver")
+        print("Error running salome")
         # return a high cost
         return float('inf')
     
@@ -170,14 +176,25 @@ def to_execute(input):
         for idx2, elem2 in enumerate(elem):
             if isinstance(elem2, np.ndarray):
                 input2[idx][idx2] = elem2.tolist()
+    print("E", json.dumps(input2))
 
     # add row to table
     # could add all of a generation's rows at once to minimize I/O, but would have to update each row anyways
     # with time_started, so it doesn't reduce runtime network cost
-    cur.execute('''INSERT INTO {} (time_started, in_progress, completed, generation_number, ctrl_pts)
-                VALUES (NOW(), TRUE, FALSE, {}, {});
-                '''.format(table_name, gen_num, json.dumps(input2)))
-    conn.commit()
+
+    # get latest individual_id
+    x = conn.run("SELECT MAX(individual_id) FROM {}".format(table_name))
+    individual_id = x[0][0]
+    if individual_id is None:
+        individual_id = 1
+    else:
+        individual_id += 1
+
+    conn.run('''INSERT INTO {} (individual_id, time_started, in_progress, completed, generation_number, ctrl_pts)
+                VALUES ({}, NOW(), TRUE, FALSE, {}, CAST(:ct as jsonb));
+                '''.format(table_name, individual_id, gen_num), ct=json.dumps(input2))
+
+    print("{} wrote to table {}".format(os.getpid(), table_name))
 
     # # make sure we're in a core folder
     if 'core' not in os.getcwd() and 'runtime' not in os.getcwd():
@@ -198,18 +215,15 @@ def to_execute(input):
     fitness, _ = parallel_eval(input)
 
     # update row in table that's not yet completed using row-level locking
-    cur.execute('''UPDATE {} SET time_completed = NOW(), in_progress = FALSE, completed = TRUE, cl_cd = {}
-                WHERE in_progress = TRUE AND completed = FALSE AND generation_number = {} AND ctrl_pts = {};
-                '''.format(table_name, fitness, gen_num, json.dumps(input2)))
-    conn.commit()
+    conn.run("UPDATE {} SET time_completed = NOW(), in_progress = FALSE, completed = TRUE, cl_cd = {} WHERE individual_id = {} AND in_progress = TRUE AND completed = FALSE AND generation_number = {};"\
+            .format(table_name, fitness, individual_id, gen_num))
+
 
     return fitness, input
 
-def multiprocessor(parallel_eval_fcn, inputs, cur_table, conns, cursor, generation_number):
+def multiprocessor(parallel_eval_fcn, inputs, cur_table, conns, generation_number):
 
     # set globals
-    global cur
-    cur = cursor
     global conn
     conn = conns
     global parallel_eval
@@ -264,14 +278,11 @@ def initiate():
 
 def continue_execution(conn):
 
-    global cur
     global table_name
-
-    cur = conn.cursor()
 
     # Table - runs (if not exists)
     # run_id, time_started, time_completed, in-progress, table_name, shape, solver, optimizer
-    cur.execute('''
+    conn.run('''
         CREATE TABLE IF NOT EXISTS runs (
             run_id SERIAL PRIMARY KEY,
             time_started TIMESTAMP,
@@ -286,11 +297,10 @@ def continue_execution(conn):
             population_size INTEGER
         );
     ''')
-    conn.commit()
 
     # get the latest run_id, and increment it by 1
-    cur.execute("SELECT MAX(run_id) FROM runs")
-    run_id = cur.fetchone()[0]
+    x = conn.run("SELECT MAX(run_id) FROM runs")
+    run_id = x[0][0]
     if run_id is None:
         run_id = 1
     else:
@@ -299,15 +309,14 @@ def continue_execution(conn):
     # add entry to runs table
     table_name = shape + optimizer + str(run_id) + ''
     print(table_name)
-    cur.execute('''
+    conn.run('''
                 INSERT INTO runs (run_id, time_started, in_progress, completed, table_name, shape, solver, optimizer, num_generations, population_size)
                 VALUES ({}, NOW(), TRUE, FALSE, '{}', '{}', '{}', '{}', {}, {});
                 '''.format(run_id, table_name, shape, solver, optimizer, total_generations, population_size))
-    conn.commit()
 
     # Table - airfoil (if not exists)
     # individual_id, time_started, time_completed, in-progress, completed, generation_number, cl-cd, ctrl_pts
-    cur.execute('''
+    conn.run('''
         CREATE TABLE IF NOT EXISTS {} (
             individual_id SERIAL PRIMARY KEY,
             time_started TIMESTAMP,
@@ -319,7 +328,6 @@ def continue_execution(conn):
             ctrl_pts JSON
         );
     '''.format(table_name))
-    conn.commit()
 
     # assuming that if you have cores # of folders, it's setup right, otherwise, delete and recreate
     if len(os.listdir('./runtime')) != cores + 1:   # cores + base file
@@ -363,11 +371,10 @@ def continue_execution(conn):
     print("Found initial splines: ", initial_splines)
     
     # start GA
-    genetic_alg(cost_fcn=airfoil_cost, multiprocessor=multiprocessor, conn=conn, cursor=cur, table_name=table_name, num_generations=total_generations, pop_size=population_size, alpha=alpha, init_pop_splines=initial_splines)
+    genetic_alg(cost_fcn=airfoil_cost, multiprocessor=multiprocessor, conn=conn, table_name=table_name, num_generations=total_generations, pop_size=population_size, alpha=alpha, init_pop_splines=initial_splines)
 
     # update the entry as completed
-    cur.execute("UPDATE runs SET time_completed = NOW(), in_progress = FALSE, completed = TRUE WHERE table_name = '{}';".format(table_name))
-    conn.commit()
+    conn.run("UPDATE runs SET time_completed = NOW(), in_progress = FALSE, completed = TRUE WHERE table_name = '{}';".format(table_name))
 
     conn.close()
 
