@@ -5,6 +5,7 @@ import pg8000
 import os
 import csv
 import sys
+from time import sleep
 from dotenv import load_dotenv
 import json
 from pg8000 import JSON
@@ -146,23 +147,46 @@ def airfoil_cost(input):
 
 # reroute to the correct runtime folder for each core (also has to be global for multiprocessing to work)
 def reroute(input):
+    print("Rerouting to {}".format(input))
     os.system('cd ./runtime/{}'.format(input))
+    print(os.getpid())
+
 
 # make multiprocessor function to run the solver in parallel (also has to be global for multiprocessing to work)
 def to_execute(input):
+    print(os.getcwd())
+
+    # make a version of the input that can be stored in the db (numpy arrays can't be stored)
+    if isinstance(input, np.ndarray):
+        input2 = input.tolist()
+    else:
+        input2 = input
+    # do it for nested arrays
+    for idx, elem in enumerate(input2):
+        if isinstance(elem, np.ndarray):
+            input2[idx] = elem.tolist()
+        for idx2, elem2 in enumerate(elem):
+            if isinstance(elem2, np.ndarray):
+                input2[idx][idx2] = elem2.tolist()
 
     # add row to table
     # could add all of a generation's rows at once to minimize I/O, but would have to update each row anyways
     # with time_started, so it doesn't reduce runtime network cost
     cur.execute('''INSERT INTO {} (time_started, in_progress, completed, generation_number, ctrl_pts)
                 VALUES (NOW(), TRUE, FALSE, {}, {});
-                '''.format(table_name, gen_num, json.dumps(input)))
+                '''.format(table_name, gen_num, json.dumps(input2)))
     conn.commit()
 
+    # make sure we're in a core folder
+    if 'core' not in os.getcwd() and 'runtime' not in os.getcwd():
+        # assume we in root and default to core 0
+        print("In wrong folder - " + os.getcwd() + "; Redirecting to core0...")
+        os.chdir('./runtime/core0')
     # clean up this core's runtime folder (assumes that salome can overwrite files fine)
     # delete all folders except for core ones
+    sleep(10)
     for file in os.listdir('./'):
-        if file != '0' and file != 'constant' and file != 'system' and file != 'Allclean' and file != 'Allrun':
+        if file != '0' and file != 'constant' and file != 'system' and file != 'Allclean' and file != 'Allrun' and file != '.git':
             os.system('rm -r ./{}'.format(file))
     
     # trigger core execute
@@ -171,7 +195,7 @@ def to_execute(input):
     # update row in table that's not yet completed using row-level locking
     cur.execute('''UPDATE {} SET time_completed = NOW(), in_progress = FALSE, completed = TRUE, cl_cd = {}
                 WHERE in_progress = TRUE AND completed = FALSE AND generation_number = {} AND ctrl_pts = {};
-                '''.format(table_name, fitness, gen_num, json.dumps(input)))
+                '''.format(table_name, fitness, gen_num, json.dumps(input2)))
     conn.commit()
 
     return fitness, input
@@ -198,8 +222,9 @@ def multiprocessor(parallel_eval_fcn, inputs, cur_table, conns, cursor, generati
     pool.map(reroute, template_folders)
 
     # execute the function in parallel
-    print(inputs)
-    outputs = pool.map(to_execute, inputs.tolist())
+    # print(inputs)
+    print("Starting parallel execution...")
+    outputs = pool.map(to_execute, inputs)
     pool.close()
     pool.join()
 
