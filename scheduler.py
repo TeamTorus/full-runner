@@ -198,7 +198,7 @@ def multiprocessor(parallel_eval_fcn, inputs, cur_table, conns, cursor, generati
     pool.map(reroute, template_folders)
 
     # execute the function in parallel
-    outputs = pool.map(to_execute, inputs)
+    outputs = pool.map(to_execute, inputs.tolist())
     pool.close()
     pool.join()
 
