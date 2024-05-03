@@ -145,16 +145,14 @@ def airfoil_cost(input):
 
     return float(cl_val) / float(cd_val)
 
-# reroute to the correct runtime folder for each core (also has to be global for multiprocessing to work)
-def reroute(input):
-    print("Rerouting to {}".format(input))
-    os.system('cd ./runtime/{}'.format(input))
-    print(os.getpid())
+# obtain the process id of the current process
+def get_pid(input):
+    print("PID: {}".format(os.getpid()))
+    return os.getpid()
 
 
 # make multiprocessor function to run the solver in parallel (also has to be global for multiprocessing to work)
 def to_execute(input):
-    print(os.getcwd())
 
     # make a version of the input that can be stored in the db (numpy arrays can't be stored)
     if isinstance(input, np.ndarray):
@@ -219,7 +217,7 @@ def multiprocessor(parallel_eval_fcn, inputs, cur_table, conns, cursor, generati
 
     # reroute to the correct runtime folder for each core
     template_folders = ['core{}'.format(i) for i in range(cores)]
-    pool.map(reroute, template_folders)
+    pids = pool.map(get_pid, template_folders)
 
     # execute the function in parallel
     # print(inputs)
