@@ -146,7 +146,7 @@ def airfoil_cost(input):
 
 # reroute to the correct runtime folder for each core (also has to be global for multiprocessing to work)
 def reroute(input):
-    os.chdir('./runtime/{}'.format(input))
+    os.system('cd ./runtime/{}'.format(input))
 
 # make multiprocessor function to run the solver in parallel (also has to be global for multiprocessing to work)
 def to_execute(input):
