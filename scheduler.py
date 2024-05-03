@@ -235,7 +235,11 @@ def continue_execution(conn):
 
     # get the latest run_id, and increment it by 1
     cur.execute("SELECT MAX(run_id) FROM runs")
-    run_id = cur.fetchone()[0] + 1
+    run_id = cur.fetchone()[0]
+    if run_id is None:
+        run_id = 1
+    else:
+        run_id += 1
 
     # add entry to runs table
     table_name = shape + optimizer + str(run_id) + ''

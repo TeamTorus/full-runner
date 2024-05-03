@@ -19,19 +19,20 @@ try:
 
     # Table - runs (if not exists)
     # run_id, time_started, time_completed, in-progress, table_name, shape, solver, optimizer
-    # cur.execute('''
-    #     CREATE TABLE IF NOT EXISTS runs (
-    #         run_id SERIAL PRIMARY KEY,
-    #         time_started TIMESTAMP,
-    #         time_completed TIMESTAMP,
-    #         in_progress BOOLEAN,
-    #         completed BOOLEAN,
-    #         table_name TEXT,
-    #         shape TEXT,
-    #         solver TEXT,
-    #         optimizer TEXT
-    #     );
-    # ''')
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS runs (
+            run_id SERIAL PRIMARY KEY,
+            time_started TIMESTAMP,
+            time_completed TIMESTAMP,
+            in_progress BOOLEAN,
+            completed BOOLEAN,
+            table_name TEXT,
+            shape TEXT,
+            solver TEXT,
+            optimizer TEXT
+        );
+    ''')
+    conn.commit()
 
     # cur.execute('''
     #             INSERT INTO runs (run_id, time_started, in_progress, completed, table_name, shape, solver, optimizer)
@@ -50,11 +51,10 @@ try:
     for row in rows:
         print(row)
 
-    cur.execute("SELECT * FROM airfoilGA11")
-    rows = cur.fetchall()
-
-    for row in rows:
-        print(row)
+    # cur.execute("SELECT * FROM airfoilGA11")
+    # rows = cur.fetchall()
+    # for row in rows:
+    #     print(row)
 
 
     conn.close()
