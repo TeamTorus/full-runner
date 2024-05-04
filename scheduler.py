@@ -20,6 +20,8 @@ population_size = 8
 alpha = .00875
 slope_weight = 0.0
 input_file = 'ControlPoints0012.txt'
+# cores = multiprocessing.cpu_count()
+cores = 1
 
 # temp globals
 conn = None
@@ -49,8 +51,6 @@ from cPointstoCMeshv3 import fix_boundary, salome_stuff
 attempts = 0
 
 # get number of cores
-# cores = multiprocessing.cpu_count()
-cores = 1
 print("Number of detected cores: {}".format(cores))
 
 # converts control point formats from 3 coordinate lists to nested spline arrays
@@ -102,13 +102,17 @@ def airfoil_cost(input):
         salome_stuff(xC, yC, zC, './constant/polyMesh')
         fix_boundary('./constant/polyMesh')
 
-        # run the solver
+        # suppress prints
+        print("Running solver...suppressing output...")
+        sys.stdout = open(os.devnull, 'w')
         try:
+            # run the solver
             os.system('simpleFoam')
         except:
             print("Error running solver")
             # return a high cost
             return float('inf')
+        sys.stdout = sys.__stdout__
     except:
         print("Error running salome")
         # sleep(5)
@@ -145,7 +149,7 @@ def airfoil_cost(input):
     for row in reader:
         if row:
 
-            # in case tab delimiters didn't parse correctly
+            # in case tab delimiters didn't parse correctly (happens on some systems)
             if len(row) < 4:
                 row = row[0].split(' ')
                 row = [x for x in row if x]
