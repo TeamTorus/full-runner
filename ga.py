@@ -48,7 +48,7 @@ def get_fitpoints(splines):
     return tuples  
 
 
-def plot_fitpoints(splines, show_points=True):
+def plot_fitpoints(splines, show_points=True, fpath=None):
     for s in range(len(splines)): 
         if show_points == True:
             plt.plot(splines[s][:,0], splines[s][:,1], 'o--', label=f'Spline {s+1}')
@@ -57,10 +57,12 @@ def plot_fitpoints(splines, show_points=True):
         # Setting equal aspect ratio for both axes to avoid distortion
         plt.axis('equal')
         plt.plot(x,y,)
+        if fpath is not None:
+            plt.savefig(fpath)
         
         
 #--------------GA ALG--------------------
-def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size = 100, alpha = 0.00875, init_pop_splines = [], table_name = None, conn = None, cursor = None):
+def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size = 100, alpha = 0.00875, init_pop_splines = [], table_name = None, conn = None):
     """
     Executes the genetic algorithm. Pass in a function that takes in an evaluation func and inputs list into `multiprocessor`
     for parallel compute, which should not be async and be blocking. If this is done, it should return the ranks list. 
@@ -128,10 +130,13 @@ def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size
         mut_shape = []
         for s in splines:
             mut_spline_list = []
-            for point in s:
+            for idx, point in enumerate(s):
                 mut_point = []
                 for coord in point:
-                    mut_point.append(mut_func(coord, gen))
+                    if idx == 0 or idx == len(s)-1:
+                        mut_point.append(coord)
+                    else:
+                        mut_point.append(mut_func(coord, gen))
                 mut_spline_list.append(mut_point)
             mut_spline = np.array(mut_spline_list)
             mut_shape.append(mut_spline)
@@ -149,6 +154,8 @@ def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size
             mutated = mut(splines, 0)
             if is_valid(mutated):
                 pop.append(mutated)
+        print("INITIAL POPULATION")
+        print(pop)
         return pop
 
     # Checks the validity of the shape
@@ -175,7 +182,7 @@ def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size
                 if val is not None:
                     ranks.append(val)
         else:
-            ranks = multiprocessor(parallel_eval_fcn=parallel_eval, inputs=splines, cur_table=table_name, conns=conn, cursor=cursor, generation_number=generation_number)
+            ranks = multiprocessor(parallel_eval_fcn=parallel_eval, inputs=splines, cur_table=table_name, conns=conn, generation_number=generation_number)
 
         # Rank solutions in reverse sorted order
         ranks.sort()

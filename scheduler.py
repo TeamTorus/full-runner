@@ -110,7 +110,7 @@ def airfoil_cost(input):
             return float('inf')
     except:
         print("Error running salome")
-        sleep(5)
+        # sleep(5)
         # return a high cost
         return float('inf')
     
