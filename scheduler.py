@@ -15,6 +15,7 @@ from ga import genetic_alg
 shape = 'airfoil'
 solver = 'simpleFoam'
 optimizer = 'GA'
+mesh_radius = 5
 total_generations = 2
 population_size = 8
 alpha = .00875
@@ -99,7 +100,7 @@ def airfoil_cost(input):
         print(xC)
         print(yC)
         print(zC)
-        salome_stuff(xC, yC, zC, './constant/polyMesh')
+        salome_stuff(xC, yC, zC, './constant/polyMesh', mesh_radius=mesh_radius)
         fix_boundary('./constant/polyMesh')
 
         # suppress prints
@@ -308,6 +309,7 @@ def continue_execution(conn):
             shape TEXT,
             solver TEXT,
             optimizer TEXT,
+            resolution FLOAT,
             num_generations INTEGER,
             population_size INTEGER
         );
@@ -326,9 +328,9 @@ def continue_execution(conn):
     table_name = shape + optimizer + str(run_id) + ''
     print(table_name)
     cur.execute('''
-                INSERT INTO runs (run_id, time_started, in_progress, completed, table_name, shape, solver, optimizer, num_generations, population_size)
-                VALUES ({}, NOW(), TRUE, FALSE, '{}', '{}', '{}', '{}', {}, {});
-                '''.format(run_id, table_name, shape, solver, optimizer, total_generations, population_size))
+                INSERT INTO runs (run_id, time_started, in_progress, completed, table_name, shape, solver, optimizer, resolution, num_generations, population_size)
+                VALUES ({}, NOW(), TRUE, FALSE, '{}', '{}', '{}', '{}', {}, {}, {});
+                '''.format(run_id, table_name, shape, solver, optimizer, total_generations, mesh_radius, population_size))
     conn.commit()
 
     # Table - airfoil (if not exists)

@@ -35,6 +35,7 @@ try:
     #         shape TEXT,
     #         solver TEXT,
     #         optimizer TEXT,
+    #         resolution FLOAT,
     #         num_generations INTEGER,
     #         population_size INTEGER
     #     );

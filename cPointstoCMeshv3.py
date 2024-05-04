@@ -19,7 +19,7 @@ import salomeToOpenFOAM
 ###
 ### SALOME SHAPER - AIRFOIL CREATION
 ###
-def salome_stuff(xC, yC, zC, outdir):
+def salome_stuff(xC, yC, zC, outdir, mesh_radius=5):
     model.begin()
     partSet = model.moduleDocument()
     Part_1 = model.addPart(partSet)
@@ -78,7 +78,7 @@ def salome_stuff(xC, yC, zC, outdir):
     #geomObj_23 = geompy.MakeTranslation(airfoil, 0, 0, -0.5)
 
     #Make boundary region
-    radius = 5
+    radius = mesh_radius
     Disk_1 = geompy.MakeDiskR(radius, 1)
     Face_1 = geompy.MakeFaceHW(radius, 2*radius, 1)
     Translation_1 = geompy.MakeTranslation(Face_1, radius/2, 0, 0)
