@@ -62,7 +62,7 @@ def plot_fitpoints(splines, show_points=True, fpath=None):
         
         
 #--------------GA ALG--------------------
-def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size = 100, alpha = 0.00875, init_pop_splines = [], table_name = None, conn = None):
+def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size = 100, alpha = 0.00875, init_pop_splines = [], table_name = None, conn = None, slope_weight = 0):
     """
     Executes the genetic algorithm. Pass in a function that takes in an evaluation func and inputs list into `multiprocessor`
     for parallel compute, which should not be async and be blocking. If this is done, it should return the ranks list. 
@@ -99,7 +99,9 @@ def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size
                 slopiness += abs(d)
             # Don't count slope of leading edge
             slopiness -= leading_slope
-            return 1/area/slopiness + leading_slope
+
+            slope_fitness = slope_weight * (1/slopiness + leading_slope)
+            return 1/area + slope_fitness
 
     # Crossover function
     def cross(p1, p2):

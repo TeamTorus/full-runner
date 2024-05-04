@@ -18,6 +18,7 @@ optimizer = 'GA'
 total_generations = 2
 population_size = 8
 alpha = .00875
+slope_weight = 0.0
 input_file = 'ControlPoints0012.txt'
 
 # temp globals
@@ -155,7 +156,8 @@ def airfoil_cost(input):
 
     print(cd_val, cl_val)
 
-    return float(cl_val) / float(cd_val)
+    # return cd/cl since we're minimizing cost
+    return float(cd_val) / float(cl_val)
 
 # # obtain the process id of the current process
 # def get_pid(input):
@@ -384,7 +386,7 @@ def continue_execution(conn):
     print("Found initial splines: ", initial_splines)
     
     # start GA
-    genetic_alg(cost_fcn=airfoil_cost, multiprocessor=multiprocessor, conn=conn, table_name=table_name, num_generations=total_generations, pop_size=population_size, alpha=alpha, init_pop_splines=initial_splines)
+    genetic_alg(cost_fcn=airfoil_cost, multiprocessor=multiprocessor, conn=conn, table_name=table_name, num_generations=total_generations, pop_size=population_size, alpha=alpha, init_pop_splines=initial_splines, slope_weight=slope_weight)
 
     # update the entry as completed
     conn.run("UPDATE runs SET time_completed = NOW(), in_progress = FALSE, completed = TRUE WHERE table_name = '{}';".format(table_name))
