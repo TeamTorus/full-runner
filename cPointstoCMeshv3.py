@@ -19,7 +19,7 @@ import salomeToOpenFOAM
 ###
 ### SALOME SHAPER - AIRFOIL CREATION
 ###
-def salome_stuff(xC, yC, zC, outdir):
+def salome_stuff(xC, yC, zC, outdir, mesh_radius=5):
     model.begin()
     partSet = model.moduleDocument()
     Part_1 = model.addPart(partSet)
@@ -68,7 +68,6 @@ def salome_stuff(xC, yC, zC, outdir):
     ### SALOME GEOM - CREATE GROUPS FOR MESH
     ###
     geompy = geomBuilder.New()
-
     O = geompy.MakeVertex(0, 0, 0)
     OX = geompy.MakeVectorDXDYDZ(1, 0, 0)
     OY = geompy.MakeVectorDXDYDZ(0, 1, 0)
@@ -79,7 +78,7 @@ def salome_stuff(xC, yC, zC, outdir):
     #geomObj_23 = geompy.MakeTranslation(airfoil, 0, 0, -0.5)
 
     #Make boundary region
-    radius = 5
+    radius = mesh_radius
     Disk_1 = geompy.MakeDiskR(radius, 1)
     Face_1 = geompy.MakeFaceHW(radius, 2*radius, 1)
     Translation_1 = geompy.MakeTranslation(Face_1, radius/2, 0, 0)
@@ -123,6 +122,7 @@ def salome_stuff(xC, yC, zC, outdir):
     BottomRight = geompy.CreateGroup(SuppressFaces_1, geompy.ShapeType["FACE"])
     geompy.UnionIDs(BottomRight, [29])
     [FarField, Airfoil, Left, Right, Top, Bottom, geomObj_24, TopLeft, BottomLeft, geomObj_25, geomObj_26, geomObj_27, geomObj_28, geomObj_29, geomObj_30, geomObj_31, TopRight, BottomRight] = geompy.GetExistingSubObjects(SuppressFaces_1, False)
+    print("Creating geometry")
 
     geompy.addToStudy( O, 'O' )
     geompy.addToStudy( OX, 'OX' )
@@ -256,7 +256,9 @@ def fix_boundary(outdir):
     '''
 
     line_nums = []
-    to_change = ['TopLeft', 'BottomLeft', 'TopRight', 'BottomRight', 'TopLeft_top', 'BottomLeft_top', 'TopRight_top', 'BottomRight_top']
+    line_nums2 = []
+    to_change_empty = ['TopLeft', 'BottomLeft', 'TopRight', 'BottomRight', 'TopLeft_top', 'BottomLeft_top', 'TopRight_top', 'BottomRight_top']
+    to_change_wall = ['Airfoil_extruded']
     new_file = []
 
     with open(outdir + '/boundary', 'r') as f:
@@ -264,14 +266,18 @@ def fix_boundary(outdir):
         for idx, line in enumerate(f.readlines()):
 
             # if we gonna need to change it
-            if line.strip() in to_change:
+            if line.strip() in to_change_empty:
                 line_nums.append(idx+2)
+            elif line.strip() in to_change_wall:
+                line_nums2.append(idx+2)
 
             # save the contents somewhere
             new_file.append(line)
 
     for idx in line_nums:
         new_file[idx] = '		type		empty;\n'
+    for idx in line_nums2:
+        new_file[idx] = '		type		wall;\n'
 
     # rewrite file
     with open(outdir + '/boundary', 'w') as f:
@@ -283,8 +289,8 @@ if __name__ == '__main__':
     ### CONTROL POINT EXTRACTION
     ###
 
-    indir = r"C:\Users\Ben Greenberg\Documents\gems\airfoilProject\controlPoints\ControlPoints4415.txt"
-    outdir = './base/airfoilOptTest1Clean/constant/polyMesh'
+    indir = "./ControlPoints0012.txt"
+    outdir = './runtime/core0/constant/polyMesh'
     xC = []
     yC = []
     zC = []
@@ -296,10 +302,22 @@ if __name__ == '__main__':
             elif (n[0] == "END"): #ignore end lines
                 pass
             else:
-                xC.append(n[0]) #add first number in each row to x coordinate list
-                yC.append(n[1]) #add second number to y list
-                zC.append(n[2]) #third to z list
+                xC.append(float(n[0])) #add first number in each row to x coordinate list
+                yC.append(float(n[1])) #add second number to y list
+                zC.append(float(n[2])) #third to z list
         f.close()
+    print(xC)
+    print(yC)
+    print(zC)
+
+    # NACA0012
+    # xC = [1.00000005, 0.96599367, 0.79596044, 0.5681121, 0.38490504, 0.17905778, 0.17905778, 0.10991225, -0.072873, -0.072873, 0.10991225, 0.17905778, 0.17905778, 0.38490504, 0.5681121, 0.79596044, 0.96599367, 1.00000005]
+    # yC = [0.0, -0.00828587, -0.0292304, -0.05103232, -0.06936066, -0.05614943, -0.05614943, -0.04955851, -0.03860879, 0.03860879, 0.04955851, 0.05614943, 0.05614943, 0.06936066, 0.05103232, 0.0292304, 0.00828587, 0.0]
+    # zC = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+    xC = [1.0, 0.9618595204193467, 0.8033302548395505, 0.5603173590524105, 0.3873763032702343, 0.18470095716718143, 0.18470095716718143, 0.10543225447641287, -0.08162858850221558, -0.065728163987333, 0.1094218594140584, 0.17504135078832145, 0.17504135078832145, 0.3864419131074707, 0.5737925886111878, 0.7983476721422594, 0.9668382290966343, 1.0]
+    yC = [0.0, -0.006154532122824076, -0.025227789198357997, -0.05010568700234853, -0.0716263707319749, -0.055034843105266455, -0.055034843105266455, -0.04969315952636594, -0.030012471290268995, 0.043182505504219024, 0.04227387899379136, 0.05132896003888626, 0.05132896003888626, 0.07016395581405857, 0.049073689078245435, 0.03046499503696143, 0.006176514963667031, 0.0]
+    zC = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
     salome_stuff(xC, yC, zC, outdir=outdir)
     fix_boundary(outdir)

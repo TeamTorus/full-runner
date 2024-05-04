@@ -48,7 +48,7 @@ def get_fitpoints(splines):
     return tuples  
 
 
-def plot_fitpoints(splines, show_points=True):
+def plot_fitpoints(splines, show_points=True, fpath=None):
     for s in range(len(splines)): 
         if show_points == True:
             plt.plot(splines[s][:,0], splines[s][:,1], 'o--', label=f'Spline {s+1}')
@@ -57,10 +57,12 @@ def plot_fitpoints(splines, show_points=True):
         # Setting equal aspect ratio for both axes to avoid distortion
         plt.axis('equal')
         plt.plot(x,y,)
+        if fpath is not None:
+            plt.savefig(fpath)
         
         
 #--------------GA ALG--------------------
-def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size = 100, alpha = 0.00875, init_pop_splines = [], table_name = None, conn = None, cursor = None):
+def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size = 100, alpha = 0.00875, init_pop_splines = [], table_name = None, conn = None, slope_weight = 0):
     """
     Executes the genetic algorithm. Pass in a function that takes in an evaluation func and inputs list into `multiprocessor`
     for parallel compute, which should not be async and be blocking. If this is done, it should return the ranks list. 
@@ -84,9 +86,9 @@ def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size
 
     # Fitness function to lead us to a fitted NACA0012
     def fitness(control_points):
-        area = cost_fcn(control_points)
+        cd_cl, cl, cd = cost_fcn(control_points)
         # If area matches exactly, best shape is found
-        if area == 0:
+        if cd_cl == 0:
             return sys.maxsize
         # If not, add slopiness of the control points as a factor (shapes that are less slopy everywhere besides the leading edge are favored)
         else:
@@ -97,7 +99,9 @@ def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size
                 slopiness += abs(d)
             # Don't count slope of leading edge
             slopiness -= leading_slope
-            return 1/area/slopiness + leading_slope
+
+            slope_fitness = slope_weight * (1/slopiness + leading_slope)
+            return 1/cd_cl + slope_fitness, cl, cd
 
     # Crossover function
     def cross(p1, p2):
@@ -126,12 +130,18 @@ def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size
     # Mutates a shape
     def mut(splines, gen):
         mut_shape = []
-        for s in splines:
+        for jdx, s in enumerate(splines):
             mut_spline_list = []
-            for point in s:
+            for idx, point in enumerate(s):
                 mut_point = []
                 for coord in point:
-                    mut_point.append(mut_func(coord, gen))
+                    # exempt knot on trailing edge
+                    if idx == 0 and jdx == 0:
+                        mut_point.append(coord)
+                    elif idx == len(s)-1 and jdx == len(splines)-1:
+                        mut_point.append(coord)
+                    else:
+                        mut_point.append(mut_func(coord, gen))
                 mut_spline_list.append(mut_point)
             mut_spline = np.array(mut_spline_list)
             mut_shape.append(mut_spline)
@@ -149,6 +159,8 @@ def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size
             mutated = mut(splines, 0)
             if is_valid(mutated):
                 pop.append(mutated)
+        print("INITIAL POPULATION")
+        print(pop)
         return pop
 
     # Checks the validity of the shape
@@ -171,11 +183,12 @@ def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size
         # if multiprocessing is enabled or not
         if multiprocessor == None:
             for shape in splines:
-                val = parallel_eval(shape)
+                (fitnessness, _, _), shapeness = parallel_eval(shape)
+                val = (fitnessness, shapeness)
                 if val is not None:
                     ranks.append(val)
         else:
-            ranks = multiprocessor(parallel_eval=parallel_eval, inputs=splines, table_name=table_name, conn=conn, cursor=cursor, gen_num=generation_number)
+            ranks = multiprocessor(parallel_eval_fcn=parallel_eval, inputs=splines, cur_table=table_name, conns=conn, generation_number=generation_number)
 
         # Rank solutions in reverse sorted order
         ranks.sort()
