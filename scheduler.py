@@ -157,7 +157,7 @@ def airfoil_cost(input):
     print(cd_val, cl_val)
 
     # return cd/cl since we're minimizing cost
-    return float(cd_val) / float(cl_val)
+    return (float(cd_val) / float(cl_val), cl_val, cd_val)
 
 # # obtain the process id of the current process
 # def get_pid(input):
@@ -221,11 +221,11 @@ def to_execute(input):
     print()
     
     # trigger core execute
-    fitness, _ = parallel_eval(input)
+    (fitness, cl, cd), _ = parallel_eval(input)
 
     # update row in table that's not yet completed using row-level locking
-    conn.run("UPDATE {} SET time_completed = NOW(), in_progress = FALSE, completed = TRUE, cl_cd = {} WHERE individual_id = {} AND in_progress = TRUE AND completed = FALSE AND generation_number = {};"\
-            .format(table_name, fitness, individual_id, gen_num))
+    conn.run("UPDATE {} SET time_completed = NOW(), in_progress = FALSE, completed = TRUE, fitness = {}, cl = {}, cd = {} WHERE individual_id = {} AND in_progress = TRUE AND completed = FALSE AND generation_number = {};"\
+            .format(table_name, fitness, cl, cd, individual_id, gen_num))
     conn.commit()
 
 
@@ -337,7 +337,9 @@ def continue_execution(conn):
             in_progress BOOLEAN,
             completed BOOLEAN,
             generation_number INTEGER,
-            cl_cd FLOAT,
+            fitness FLOAT,
+            cl FLOAT,
+            cd FLOAT,
             ctrl_pts JSON
         );
     '''.format(table_name))

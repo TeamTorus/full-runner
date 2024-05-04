@@ -86,9 +86,9 @@ def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size
 
     # Fitness function to lead us to a fitted NACA0012
     def fitness(control_points):
-        area = cost_fcn(control_points)
+        cd_cl, cl, cd = cost_fcn(control_points)
         # If area matches exactly, best shape is found
-        if area == 0:
+        if cd_cl == 0:
             return sys.maxsize
         # If not, add slopiness of the control points as a factor (shapes that are less slopy everywhere besides the leading edge are favored)
         else:
@@ -101,7 +101,7 @@ def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size
             slopiness -= leading_slope
 
             slope_fitness = slope_weight * (1/slopiness + leading_slope)
-            return 1/area + slope_fitness
+            return 1/cd_cl + slope_fitness, cl, cd
 
     # Crossover function
     def cross(p1, p2):
@@ -180,7 +180,8 @@ def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size
         # if multiprocessing is enabled or not
         if multiprocessor == None:
             for shape in splines:
-                val = parallel_eval(shape)
+                (fitnessness, _, _), shapeness = parallel_eval(shape)
+                val = (fitnessness, shapeness)
                 if val is not None:
                     ranks.append(val)
         else:
