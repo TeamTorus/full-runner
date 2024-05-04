@@ -130,12 +130,15 @@ def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size
     # Mutates a shape
     def mut(splines, gen):
         mut_shape = []
-        for s in splines:
+        for jdx, s in enumerate(splines):
             mut_spline_list = []
             for idx, point in enumerate(s):
                 mut_point = []
                 for coord in point:
-                    if idx == 0 or idx == len(s)-1:
+                    # exempt knot on trailing edge
+                    if idx == 0 and jdx == 0:
+                        mut_point.append(coord)
+                    elif idx == len(s)-1 and jdx == len(splines)-1:
                         mut_point.append(coord)
                     else:
                         mut_point.append(mut_func(coord, gen))
