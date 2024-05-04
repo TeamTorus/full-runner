@@ -205,7 +205,7 @@ def to_execute(input):
 
     conn.run('''INSERT INTO {} (individual_id, time_started, in_progress, completed, generation_number, ctrl_pts)
                 VALUES ({}, NOW(), TRUE, FALSE, {}, CAST(:ct as jsonb));
-                '''.format(table_name, individual_id, gen_num), ct=json.dumps(input2))
+                '''.format(table_name, individual_id, gen_num + 1), ct=json.dumps(input2))  # save as gen_num + 1 since we're starting from 0
     conn.commit()
 
     print("{} wrote to table {}".format(os.getpid(), table_name))
@@ -230,7 +230,7 @@ def to_execute(input):
 
     # update row in table that's not yet completed using row-level locking
     conn.run("UPDATE {} SET time_completed = NOW(), in_progress = FALSE, completed = TRUE, fitness = {}, cl = {}, cd = {} WHERE individual_id = {} AND in_progress = TRUE AND completed = FALSE AND generation_number = {};"\
-            .format(table_name, fitness, cl, cd, individual_id, gen_num))
+            .format(table_name, fitness, cl, cd, individual_id, gen_num + 1))   
     conn.commit()
 
 
@@ -392,6 +392,17 @@ def continue_execution(conn):
     print(zC)
     initial_splines = coords_to_splines(xC, yC, zC)
     print("Found initial splines: ", initial_splines)
+
+    # run a simulation on the initial splines
+    conn.run('''INSERT INTO {} (individual_id, time_started, in_progress, completed, generation_number, ctrl_pts)
+                VALUES (1, NOW(), TRUE, FALSE, 0, CAST(:ct as jsonb));
+                '''.format(table_name), ct=json.dumps(initial_splines))
+    conn.commit()
+    fitness, cl, cd = airfoil_cost(initial_splines)
+    print("Initial fitness: ", fitness)
+    conn.run("UPDATE {} SET time_completed = NOW(), in_progress = FALSE, completed = TRUE, fitness = {}, cl = {}, cd = {} WHERE individual_id = 1 AND in_progress = TRUE AND completed = FALSE AND generation_number = 0;"\
+            .format(table_name, fitness, cl, cd))
+    conn.commit()
     
     # start GA
     genetic_alg(cost_fcn=airfoil_cost, multiprocessor=multiprocessor, conn=conn, table_name=table_name, num_generations=total_generations, pop_size=population_size, alpha=alpha, init_pop_splines=initial_splines, slope_weight=slope_weight)
