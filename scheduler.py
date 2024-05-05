@@ -17,7 +17,7 @@ solver = 'simpleFoam'
 optimizer = 'GA'
 mesh_radius = 5
 total_generations = 2
-population_size = 8
+population_size = 2
 alpha = .00875
 slope_weight = 0.0
 input_file = 'ControlPoints0012.txt'
@@ -27,7 +27,7 @@ cores = 1
 # temp globals
 conn = None
 # cur = None
-parallel_eval = lambda x: (airfoil_cost(x), x)
+parallel_eval = lambda x: 9
 table_name = shape + optimizer
 gen_num = 0
 
@@ -83,7 +83,7 @@ def splines_to_coords(splines, degree = 5):
 
     return xC, yC, zC
 
-def airfoil_cost(input):
+def airfoil_cost(input, individual_id = None):
     '''
     Where input is control points in the splines format used by `ga.py`
     '''
@@ -105,15 +105,13 @@ def airfoil_cost(input):
 
         # suppress prints
         print("Running solver...suppressing output...")
-        sys.stdout = open(os.devnull, 'w')
         try:
             # run the solver
-            os.system('simpleFoam')
+            os.system('simpleFoam >/dev/null')
         except:
             print("Error running solver")
             # return a high cost
             return float('inf')
-        sys.stdout = sys.__stdout__
     except:
         print("Error running salome")
         # sleep(5)
@@ -161,8 +159,14 @@ def airfoil_cost(input):
 
     print(cd_val, cl_val)
 
+    if individual_id is not None:
+        # update the row in the db
+        conn.run("UPDATE {} SET cl = {}, cd = {} WHERE individual_id = {} AND in_progress = TRUE AND completed = FALSE;"\
+            .format(table_name, float(cl_val), float(cd_val), individual_id))
+        conn.commit()
+
     # return cd/cl since we're minimizing cost
-    return (float(cd_val) / float(cl_val), cl_val, cd_val)
+    return (float(cd_val) / float(cl_val))
 
 # # obtain the process id of the current process
 # def get_pid(input):
@@ -208,7 +212,7 @@ def to_execute(input):
                 '''.format(table_name, individual_id, gen_num + 1), ct=json.dumps(input2))  # save as gen_num + 1 since we're starting from 0
     conn.commit()
 
-    print("{} wrote to table {}".format(os.getpid(), table_name))
+    print("{} wrote to table {} individual number {}".format(os.getpid(), table_name, individual_id))
 
     # # make sure we're in a core folder
     if 'core' not in os.getcwd() and 'runtime' not in os.getcwd():
@@ -226,11 +230,11 @@ def to_execute(input):
     print()
     
     # trigger core execute
-    (fitness, cl, cd), _ = parallel_eval(input)
+    fitness, _ = parallel_eval(input, individual_id)
 
     # update row in table that's not yet completed using row-level locking
-    conn.run("UPDATE {} SET time_completed = NOW(), in_progress = FALSE, completed = TRUE, fitness = {}, cl = {}, cd = {} WHERE individual_id = {} AND in_progress = TRUE AND completed = FALSE AND generation_number = {};"\
-            .format(table_name, fitness, cl, cd, individual_id, gen_num + 1))   
+    conn.run("UPDATE {} SET time_completed = NOW(), in_progress = FALSE, completed = TRUE, fitness = {} WHERE individual_id = {} AND in_progress = TRUE AND completed = FALSE AND generation_number = {};"\
+            .format(table_name, fitness, individual_id, gen_num + 1))   
     conn.commit()
 
 
@@ -393,16 +397,45 @@ def continue_execution(conn):
     initial_splines = coords_to_splines(xC, yC, zC)
     print("Found initial splines: ", initial_splines)
 
-    # run a simulation on the initial splines
-    conn.run('''INSERT INTO {} (individual_id, time_started, in_progress, completed, generation_number, ctrl_pts)
-                VALUES (1, NOW(), TRUE, FALSE, 0, CAST(:ct as jsonb));
-                '''.format(table_name), ct=json.dumps(initial_splines))
-    conn.commit()
-    fitness, cl, cd = airfoil_cost(initial_splines)
-    print("Initial fitness: ", fitness)
-    conn.run("UPDATE {} SET time_completed = NOW(), in_progress = FALSE, completed = TRUE, fitness = {}, cl = {}, cd = {} WHERE individual_id = 1 AND in_progress = TRUE AND completed = FALSE AND generation_number = 0;"\
-            .format(table_name, fitness, cl, cd))
-    conn.commit()
+    # # make a version of the input that can be stored in the db (numpy arrays can't be stored)
+    # if isinstance(initial_splines, np.ndarray):
+    #     input2 = initial_splines.tolist()
+    # else:
+    #     input2 = initial_splines
+    # # do it for nested arrays
+    # for idx, elem in enumerate(input2):
+    #     if isinstance(elem, np.ndarray):
+    #         input2[idx] = elem.tolist()
+    #     for idx2, elem2 in enumerate(elem):
+    #         if isinstance(elem2, np.ndarray):
+    #             input2[idx][idx2] = elem2.tolist()
+    # print("E", json.dumps(input2))
+
+    # # run a simulation on the initial splines
+    # if 'core' not in os.getcwd() and 'runtime' not in os.getcwd():
+    #     os.chdir('./runtime/core0')
+
+    # print("Cleaning PID {}'s folders...".format(os.getpid()), end='')
+    # for file in os.listdir('./'):
+    #     if file != '0' and file != 'constant' and file != 'system' and file != 'Allclean' and file != 'Allrun' and file != '.git':
+    #         print(file, end=' ')
+    #         os.system('rm -r ./{}'.format(file))
+    # print()
+
+    # # trigger core execute
+    # conn.run('''INSERT INTO {} (individual_id, time_started, in_progress, completed, generation_number, ctrl_pts)
+    #             VALUES (1, NOW(), TRUE, FALSE, 0, CAST(:ct as jsonb));
+    #             '''.format(table_name), ct=json.dumps(input2))
+    # conn.commit()
+    # cost, cl, cd = airfoil_cost(initial_splines)
+    # fitness = cl / cd
+    # print("Initial fitness: ", fitness)
+    # conn.run("UPDATE {} SET time_completed = NOW(), in_progress = FALSE, completed = TRUE, fitness = {}, cl = {}, cd = {} WHERE individual_id = 1 AND in_progress = TRUE AND completed = FALSE AND generation_number = 0;"\
+    #         .format(table_name, fitness, cl, cd))
+    # conn.commit()
+
+    # # revert to root directory and undo changes
+    # os.chdir('../..')
     
     # start GA
     genetic_alg(cost_fcn=airfoil_cost, multiprocessor=multiprocessor, conn=conn, table_name=table_name, num_generations=total_generations, pop_size=population_size, alpha=alpha, init_pop_splines=initial_splines, slope_weight=slope_weight)

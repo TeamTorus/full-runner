@@ -91,10 +91,13 @@ for row in rows:
     print(row)
 
 # get the ctrl_pts from the individual with the highest fitness
-cur.execute("SELECT ctrl_pts FROM {} WHERE cl_cd = (SELECT MAX(cl_cd) FROM {})".format(table_name[0][0], table_name[0][0]))
-ctrl_pts = cur.fetchall()[0][0]
+cur.execute("SELECT ctrl_pts FROM {} WHERE fitness = (SELECT MAX(fitness) FROM {})".format(table_name[0][0], table_name[0][0]))
+ctrl_pts = cur.fetchall()
 print("BEST AIRFOIL:")
 print(ctrl_pts)
+
+# conn.run("ALTER TABLE runs ADD resolution FLOAT")
+# conn.commit()
 
 # x = conn.run("SELECT MAX(run_id) FROM runs")
 # print(x[0][0])
