@@ -58,7 +58,7 @@ You can monitor and see the progress of the run while it's going or after the fa
 ```
 python3 dbviz.py [-FlagOptions]
 ```
-By default, running this with no flags or options will print out the latest run's table, as well as what the best shape from that iteration is. Adding flags (one or more), space delimited, can change and configure this behavior. Adding options to certain flags can allow for certain behavior.
+By default, running this with no flags or options will print out the latest run's table, as well as what the best shape from that iteration is. Adding flags (one or more), delimited by spaces, can change and configure this behavior. Adding options to certain flags can allow for certain inputs.
 
 ### Flag Options
 #### `-runs`
@@ -85,5 +85,5 @@ Plots the fitness over the generations graph.
 -------------------------------------
 For example, to see the output of table `airfoilGA122`, for individuals 50 through 100, and save the plot of the best airfoil in this range to a file called `image.jpg`, run:
 ```
-python3 dbviz.py -t airfoilGA122 -s 50 -e 100 -p ./image.jpg
+python3 dbviz.py -t airfoilGA122 -s 50 -e 100 -p -plotfile ./image.jpg
 ```
