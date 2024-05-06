@@ -458,7 +458,10 @@ def continue_execution(conn):
     conn.run("UPDATE runs SET time_completed = NOW(), in_progress = FALSE, completed = TRUE WHERE table_name = '{}';".format(table_name))
     conn.commit()
 
-    conn.close()
+    if conn:
+        conn.close()
+    if cur:
+        cur.close()
 
 initiate()
 
