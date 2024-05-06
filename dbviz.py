@@ -104,10 +104,11 @@ if '-i' in args:
     # put into a dataframe for printing
     dfi = pd.DataFrame([row], columns=column_names)
     dfi.drop(columns=['ctrl_pts'], inplace=True)
+    ctrl_pts_row = row[-1]
     print()
     print("Individual with ID", individual_id, "is:")
     print(dfi.to_markdown(index=False))
-    print("ctrl_pts: ", row[-1])
+    print("ctrl_pts: ", ctrl_pts_row)
 
 else:
     # get the row with the max fitness
@@ -118,6 +119,7 @@ else:
     # remove the ctrl_pts column from the max_fitness_row and manually print it
     print(max_fitness_row.drop('ctrl_pts'))
     print("ctrl_pts: ", (max_fitness_row['ctrl_pts']))
+    ctrl_pts_row = max_fitness_row['ctrl_pts']
 
 if '-p' in args:
 
@@ -129,16 +131,17 @@ if '-p' in args:
             print(row)
         else:
             print(f"Individual with ID {individual_id} not found")
+        # get the ctrl_pts from the row
+        ctrl_pts_row = row[-1]
     else:
-        row = max_fitness_row
         print("Plotting the airfoil with the max fitness")
 
     # plot the airfoil
     if args.get('-plotfile'):
         print("Exported airfoil to {}".format(args.get('-plotfile')))
-        ga.plot_fitpoints(np.array(max_fitness_row['ctrl_pts']), fpath=args.get('-plotfile'))
+        ga.plot_fitpoints(np.array(ctrl_pts_row), fpath=args.get('-plotfile'))
     else:
-        ga.plot_fitpoints(np.array(max_fitness_row['ctrl_pts']))
+        ga.plot_fitpoints(np.array(ctrl_pts_row))
 
 if '-track' in args or '-graph' in args:
     
