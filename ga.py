@@ -48,7 +48,7 @@ def get_fitpoints(splines):
     return tuples  
 
 
-def plot_fitpoints(splines, show_points=True, fpath=None):
+def plot_fitpoints(splines, show_points=True, fpath=None, title=None):
     for s in range(len(splines)): 
         if show_points == True:
             plt.plot(splines[s][:,0], splines[s][:,1], 'o--', label=f'Spline {s+1}')
@@ -57,8 +57,12 @@ def plot_fitpoints(splines, show_points=True, fpath=None):
         # Setting equal aspect ratio for both axes to avoid distortion
         plt.axis('equal')
         plt.plot(x,y,)
-        if fpath is not None:
-            plt.savefig(fpath)
+    if title is not None:
+        plt.title(title)
+    if fpath is not None:
+        plt.savefig(fpath)
+    else:
+        plt.show()
         
         
 #--------------GA ALG--------------------
