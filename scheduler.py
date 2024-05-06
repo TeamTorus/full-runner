@@ -166,6 +166,8 @@ def airfoil_cost(input, individual_id = None):
         conn.commit()
 
     # return cd/cl since we're minimizing cost
+    if float(cl_val) == 0:
+        return float('inf')
     return (float(cd_val) / float(cl_val))
 
 # # obtain the process id of the current process
@@ -397,6 +399,7 @@ def continue_execution(conn):
     initial_splines = coords_to_splines(xC, yC, zC)
     print("Found initial splines: ", initial_splines)
 
+    # print(os.getcwd())
     # # make a version of the input that can be stored in the db (numpy arrays can't be stored)
     # if isinstance(initial_splines, np.ndarray):
     #     input2 = initial_splines.tolist()
@@ -424,18 +427,25 @@ def continue_execution(conn):
 
     # # trigger core execute
     # conn.run('''INSERT INTO {} (individual_id, time_started, in_progress, completed, generation_number, ctrl_pts)
-    #             VALUES (1, NOW(), TRUE, FALSE, 0, CAST(:ct as jsonb));
+    #             VALUES (0, NOW(), TRUE, FALSE, 0, CAST(:ct as jsonb));
     #             '''.format(table_name), ct=json.dumps(input2))
     # conn.commit()
-    # cost, cl, cd = airfoil_cost(initial_splines)
-    # fitness = cl / cd
+    # fitness = airfoil_cost(initial_splines, 0)
     # print("Initial fitness: ", fitness)
-    # conn.run("UPDATE {} SET time_completed = NOW(), in_progress = FALSE, completed = TRUE, fitness = {}, cl = {}, cd = {} WHERE individual_id = 1 AND in_progress = TRUE AND completed = FALSE AND generation_number = 0;"\
-    #         .format(table_name, fitness, cl, cd))
+    # conn.run("UPDATE {} SET time_completed = NOW(), in_progress = FALSE, completed = TRUE, fitness = {} WHERE individual_id = 0 AND in_progress = TRUE AND completed = FALSE AND generation_number = 0;"\
+    #         .format(table_name, fitness))
     # conn.commit()
 
+    # for file in os.listdir('./'):
+    #     if file != '0' and file != 'constant' and file != 'system' and file != 'Allclean' and file != 'Allrun' and file != '.git':
+    #         print(file, end=' ')
+    #         os.system('rm -r ./{}'.format(file))
+    # print()
+
     # # revert to root directory and undo changes
+    # print(os.getcwd())
     # os.chdir('../..')
+    # print(os.getcwd())
     
     # start GA
     genetic_alg(cost_fcn=airfoil_cost, multiprocessor=multiprocessor, conn=conn, table_name=table_name, num_generations=total_generations, pop_size=population_size, alpha=alpha, init_pop_splines=initial_splines, slope_weight=slope_weight)

@@ -92,15 +92,21 @@ def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size
             return sys.maxsize
         # If not, add slopiness of the control points as a factor (shapes that are less slopy everywhere besides the leading edge are favored)
         else:
-            sl = slopes(control_points)
-            leading_slope = sl[7]
-            slopiness = 0
-            for d in sl:
-                slopiness += abs(d)
-            # Don't count slope of leading edge
-            slopiness -= leading_slope
+            if slope_weight != 0:
+                sl = slopes(control_points)
+                leading_slope = sl[7]
+                slopiness = 0
+                for d in sl:
+                    slopiness += abs(d)
+                # Don't count slope of leading edge
+                slopiness -= leading_slope
 
-            slope_fitness = slope_weight * (1/slopiness + leading_slope)
+                slope_fitness = slope_weight * (1/slopiness + leading_slope)
+            else:
+                slope_fitness = 0
+
+            if cd_cl == float('inf'):
+                return 0
             return (1/cd_cl + slope_fitness)
 
     # Crossover function
@@ -175,10 +181,16 @@ def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size
 
         # define potential parallel computation
         def parallel_eval(shape, individual_id=None):
-            if is_valid(shape):
-                return fitness(shape, individual_id), shape
-            else:
+            validity = None
+            try:
+                validity = is_valid(shape)
+                if validity:
+                    return fitness(shape, individual_id), shape
+            except:
+                print("is_valid failed")
                 return None
+            
+            return None
             
         # if multiprocessing is enabled or not
         if multiprocessor == None:
@@ -187,7 +199,10 @@ def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size
                 if val is not None:
                     ranks.append(val)
         else:
-            ranks = multiprocessor(parallel_eval_fcn=parallel_eval, inputs=splines, cur_table=table_name, conns=conn, generation_number=generation_number)
+            if generation_number == -1:
+                ranks = multiprocessor(parallel_eval_fcn=(lambda x, y: (fitness(x, y), x)), inputs=splines, cur_table=table_name, conns=conn, generation_number=generation_number)
+            else:
+                ranks = multiprocessor(parallel_eval_fcn=parallel_eval, inputs=splines, cur_table=table_name, conns=conn, generation_number=generation_number)
 
         # Rank solutions in reverse sorted order
         ranks.sort()
@@ -211,6 +226,9 @@ def genetic_alg(cost_fcn, multiprocessor = None, num_generations = 100, pop_size
 
 
     # Initial population
+    # run a rank on the initial population of just one airfoil
+    newp = [init_pop_splines]
+    ranking2 = rank(newp, -1)
     cur_pop = init_pop(init_pop_splines)
     ranking = rank(cur_pop, 0)
 

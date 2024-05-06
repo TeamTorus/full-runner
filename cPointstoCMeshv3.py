@@ -122,7 +122,6 @@ def salome_stuff(xC, yC, zC, outdir, mesh_radius=5):
     BottomRight = geompy.CreateGroup(SuppressFaces_1, geompy.ShapeType["FACE"])
     geompy.UnionIDs(BottomRight, [29])
     [FarField, Airfoil, Left, Right, Top, Bottom, geomObj_24, TopLeft, BottomLeft, geomObj_25, geomObj_26, geomObj_27, geomObj_28, geomObj_29, geomObj_30, geomObj_31, TopRight, BottomRight] = geompy.GetExistingSubObjects(SuppressFaces_1, False)
-    print("Creating geometry")
 
     geompy.addToStudy( O, 'O' )
     geompy.addToStudy( OX, 'OX' )
