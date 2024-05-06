@@ -30,7 +30,7 @@ for idx, arg in enumerate(arguments):
         else:
             value = None
         args[key] = value
-
+print(args)
 
 try:
     
@@ -88,20 +88,36 @@ column_names = [desc[0] for desc in cur.description]
 # Create a DataFrame from the fetched data, order by individual_id
 df = pd.DataFrame(rows, columns=column_names)
 
-# get the row with the max fitness
-max_fitness_row = df.loc[df['fitness'].idxmax()]
-
 # Replace entries in ctrl_pts column with "JSON"
-df['ctrl_pts'] = 'JSON Object'
+df2 = df.copy()
+df2['ctrl_pts'] = 'JSON Object'
 
 if '-st' not in args:
-    print(df.to_markdown(index=False))
+    print(df2.to_markdown(index=False))
 
-# Print the individual with the max fitness, but make sure ctrl_pts is not truncated
-print("The individual with the max fitness is:")
-# remove the ctrl_pts column from the max_fitness_row and manually print it
-print(max_fitness_row.drop('ctrl_pts'))
-print("ctrl_pts: ", (max_fitness_row['ctrl_pts']))
+if '-i' in args:
+    # get specific individual
+    individual_id = int(args.get('-i'))
+    cur.execute(f'SELECT * FROM {table_name} WHERE individual_id = {individual_id}')
+    row = cur.fetchone()
+    
+    # put into a dataframe for printing
+    dfi = pd.DataFrame([row], columns=column_names)
+    dfi.drop(columns=['ctrl_pts'], inplace=True)
+    print()
+    print("Individual with ID", individual_id, "is:")
+    print(dfi.to_markdown(index=False))
+    print("ctrl_pts: ", row[-1])
+
+else:
+    # get the row with the max fitness
+    max_fitness_row = df.loc[df['fitness'].idxmax()]
+
+    # Print the individual with the max fitness, but make sure ctrl_pts is not truncated
+    print("The individual with the max fitness is:")
+    # remove the ctrl_pts column from the max_fitness_row and manually print it
+    print(max_fitness_row.drop('ctrl_pts'))
+    print("ctrl_pts: ", (max_fitness_row['ctrl_pts']))
 
 if '-p' in args:
 
