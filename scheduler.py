@@ -16,8 +16,8 @@ shape = 'airfoil'
 solver = 'simpleFoam'
 optimizer = 'GA'
 mesh_radius = 5
-total_generations = 2
-population_size = 2
+total_generations = 6
+population_size = 8
 alpha = .00875
 slope_weight = 0.0
 input_file = 'ControlPoints0012.txt'
@@ -195,7 +195,7 @@ def to_execute(input):
         for idx2, elem2 in enumerate(elem):
             if isinstance(elem2, np.ndarray):
                 input2[idx][idx2] = elem2.tolist()
-    print("E", json.dumps(input2))
+    print("CLEAN CTRL PTS ", json.dumps(input2))
 
     # add row to table
     # could add all of a generation's rows at once to minimize I/O, but would have to update each row anyways
@@ -232,7 +232,11 @@ def to_execute(input):
     print()
     
     # trigger core execute
-    fitness, _ = parallel_eval(input, individual_id)
+    output = parallel_eval(input, individual_id)
+    if output is None:
+        fitness = -1.0
+    else:
+        fitness = output[0]
 
     # update row in table that's not yet completed using row-level locking
     conn.run("UPDATE {} SET time_completed = NOW(), in_progress = FALSE, completed = TRUE, fitness = {} WHERE individual_id = {} AND in_progress = TRUE AND completed = FALSE AND generation_number = {};"\
