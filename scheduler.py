@@ -340,7 +340,7 @@ def continue_execution(conn):
     cur.execute('''
                 INSERT INTO runs (run_id, time_started, in_progress, completed, table_name, shape, solver, optimizer, resolution, num_generations, population_size)
                 VALUES ({}, NOW(), TRUE, FALSE, '{}', '{}', '{}', '{}', {}, {}, {});
-                '''.format(run_id, table_name, shape, solver, optimizer, total_generations, mesh_radius, population_size))
+                '''.format(run_id, table_name, shape, solver, optimizer, mesh_radius, total_generations, population_size))
     conn.commit()
 
     # Table - airfoil (if not exists)

@@ -6,6 +6,7 @@ import pandas as pd
 from dotenv import load_dotenv
 import sys
 import ga
+import matplotlib.pyplot as plt
 
 load_dotenv()
 host = os.getenv("RDS_HOST")
@@ -44,6 +45,22 @@ except Exception as e:
     if conn:
         conn.rollback()
     raise e
+
+# shortcut to print runs table
+if '-runs' in args:
+    args['-fulltable'] = 'runs'
+
+# if looking to print a specific table
+if args.get('-fulltable'):
+    table_name = args.get('-fulltable').strip()
+    cur.execute(f'SELECT * FROM {table_name}')
+    rows = cur.fetchall()
+    column_names = [desc[0] for desc in cur.description]
+    df = pd.DataFrame(rows, columns=column_names)
+    print(df.to_markdown(index=False))
+    conn.close()
+    cur.close()
+    sys.exit()
 
 if args.get('-t'):
     table_name = args.get('-t').strip()
@@ -107,9 +124,9 @@ if '-p' in args:
     else:
         ga.plot_fitpoints(np.array(max_fitness_row['ctrl_pts']))
 
-if '-track' in args:
+if '-track' in args or '-graph' in args:
     
-    gen_interval = 2
+    gen_interval = 1
 
     if args.get('-track'):
         gen_interval = int(args.get('-track'))
@@ -126,23 +143,32 @@ if '-track' in args:
                 AND t.fitness = max_fitness_per_generation.max_fitness;''')
     rows = cur.fetchall()
 
-    # plot the airfoil for each generation
-    for idx, row in enumerate(rows):
-        if idx % gen_interval == 0:
-            print(f"#{row[0]} - Generation: {row[3]}, Fitness: {row[2]}")
+    if '-track' in args:
+        # plot the airfoil for each generation
+        for idx, row in enumerate(rows):
+            if idx % gen_interval == 0:
+                print(f"#{row[0]} - Generation: {row[3]}, Fitness: {row[2]}")
 
-            # if location to plot to is specified
-            if args.get('-plotfile'):
-                if args.get('-plotfile')[-1] != '/':
-                    plotfile = args.get('-plotfile') + '/' + f"airfoil_{row[0]}_gen_{row[3]}.png"
-                else:
-                    plotfile = args.get('-plotfile') + f"airfoil_{row[0]}_gen_{row[3]}.png"
+                # if location to plot to is specified
+                if args.get('-plotfile'):
+                    if args.get('-plotfile')[-1] != '/':
+                        plotfile = args.get('-plotfile') + '/' + f"airfoil_{row[0]}_gen_{row[3]}.png"
+                    else:
+                        plotfile = args.get('-plotfile') + f"airfoil_{row[0]}_gen_{row[3]}.png"
 
-                ga.plot_fitpoints(np.array(row[1]), fpath=plotfile, title=f"#{row[0]} - Generation: {row[3]}, Fitness: {row[2]}")
+                    ga.plot_fitpoints(np.array(row[1]), fpath=plotfile, title=f"#{row[0]} - Generation: {row[3]}, Fitness: {row[2]}")
 
-            ga.plot_fitpoints(np.array(row[1]), title=f"#{row[0]} - Generation: {row[3]}, Fitness: {row[2]}")  
-
-
+                ga.plot_fitpoints(np.array(row[1]), title=f"#{row[0]} - Generation: {row[3]}, Fitness: {row[2]}")  
+    else:
+        # graph the fitness over the generations
+        fitness = [row[2] for row in rows]
+        generation = [row[3] for row in rows]
+        plt.plot(generation, fitness)
+        plt.xlabel('Generation')
+        plt.ylabel('Fitness')
+        plt.title('Fitness over Generations')
+        plt.show()
+        
 
 # Close cursor and connection
 conn.close()
