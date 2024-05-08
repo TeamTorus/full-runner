@@ -180,6 +180,8 @@ if '-track' in args or '-graph' in args:
                 ga.plot_fitpoints(np.array(row[1]), title=f"#{row[0]} - Generation: {row[3]}, Fitness: {row[2]}")  
     else:
         # graph the fitness over the generations
+        # order by generation
+        
         fitness = [row[2] for row in rows]
         generation = [row[3] for row in rows]
         plt.plot(generation, fitness)

@@ -338,9 +338,9 @@ def continue_execution(conn):
     table_name = shape + optimizer + str(run_id) + ''
     print(table_name)
     cur.execute('''
-                INSERT INTO runs (run_id, time_started, in_progress, completed, table_name, shape, solver, optimizer, resolution, num_generations, population_size)
-                VALUES ({}, NOW(), TRUE, FALSE, '{}', '{}', '{}', '{}', {}, {}, {});
-                '''.format(run_id, table_name, shape, solver, optimizer, mesh_radius, total_generations, population_size))
+                INSERT INTO runs (run_id, time_started, in_progress, completed, table_name, shape, solver, optimizer, resolution, num_generations, population_size, learning_rate)
+                VALUES ({}, NOW(), TRUE, FALSE, '{}', '{}', '{}', '{}', {}, {}, {}, {});
+                '''.format(run_id, table_name, shape, solver, optimizer, mesh_radius, total_generations, population_size, alpha))
     conn.commit()
 
     # Table - airfoil (if not exists)

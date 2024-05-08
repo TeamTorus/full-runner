@@ -41,9 +41,9 @@ to be written
 In order to keep the data persistently in a remote location, the data is stored into multiple tables in the RDS database. The main table, called `runs`, stores the data of every full run of the optimizer that has occurred or is in progress, as well as holding the name that links to the table that stores that run's specifics. The schema is as follows:
 
 Table `runs`:
-|   run_id | time_started               | time_completed             | in_progress   | completed   | table_name   | shape   | solver     | optimizer   |   num_generations |   population_size |   resolution |
-|---------:|:---------------------------|:---------------------------|:--------------|:------------|:-------------|:--------|:-----------|:------------|------------------:|------------------:|-------------:|
-|Primary Key | Datetime | Datetime| Boolean| Boolean| String   | String| String| String | Integer |Integer | Integer |
+|   run_id | time_started               | time_completed             | in_progress   | completed   | table_name   | shape   | solver     | optimizer   |   num_generations |   population_size |   resolution |   learning_rate |
+|---------:|:---------------------------|:---------------------------|:--------------|:------------|:-------------|:--------|:-----------|:------------|------------------:|------------------:|-------------:|-------------:|
+|Primary Key | Datetime | Datetime| Boolean| Boolean| String   | String| String| String | Integer |Integer | Float | Float |
 
 The `table_name` entry for each row corresponds to another table with that same name, which stores the details of that run specifically and each of its individuals, with the following schema:
 

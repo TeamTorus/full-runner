@@ -96,7 +96,7 @@ ctrl_pts = cur.fetchall()
 print("BEST AIRFOIL:")
 print(ctrl_pts)
 
-# conn.run("ALTER TABLE runs ADD resolution FLOAT")
+# conn.run("ALTER TABLE runs ADD learning_rate FLOAT")
 # conn.commit()
 
 # x = conn.run("SELECT MAX(run_id) FROM runs")
